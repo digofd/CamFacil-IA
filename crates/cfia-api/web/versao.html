@@ -68,7 +68,7 @@
           <input name="empresa" maxlength="40" placeholder="Silva Segurança">
         </label>
         <div class="c-classes ver-logo">
-          <span class="rotulo">Logo <span class="tiny">PNG ou JPG, até 512 KB, de preferência quadrado</span></span>
+          <span class="rotulo">Logo <span class="tiny">PNG ou JPG; recortamos as bordas e ajustamos no quadrado</span></span>
           <div class="ver-logo-linha">
             <div class="ver-logo-previa" id="logo-previa" aria-live="polite"><span class="tiny">Sem logo</span></div>
             <label class="btn sm">Escolher arquivo<input type="file" id="logo" accept="image/png,image/jpeg"></label>
@@ -84,14 +84,11 @@
     <section class="est-passo" id="cor" role="tabpanel" aria-labelledby="t-cor" hidden>
       <header class="est-cab">
         <h1 id="t-cor">Cor de destaque</h1>
-        <p>Entra no lugar do verde: item ativo, botão ligado, foco, ponto ao vivo. A base continua preta.</p>
+        <p>Escolha uma das cores da lista. Ela entra no lugar do verde: item ativo, botão ligado, foco, ponto ao vivo. Todas já foram conferidas para ficar legíveis no fundo preto.</p>
       </header>
       <div class="est-duas">
         <div class="ver-cores">
-          <div class="ver-paleta" id="paleta" role="radiogroup" aria-label="Cores prontas"></div>
-          <label class="ver-propria">Outra cor
-            <input type="color" id="cor-propria" value="#06cb3f">
-          </label>
+          <div class="ver-paleta" id="paleta" role="radiogroup" aria-label="Cores de destaque"></div>
           <p class="msg" id="cor-msg" aria-live="polite"></p>
         </div>
         <div class="ver-previa" id="previa" aria-label="Prévia do programa">

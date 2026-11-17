@@ -38,8 +38,8 @@ Dentro do tenant do técnico, logado com o Google (SDD-08). Menu **Gerar sua ver
 
 Página `/versao` do `cfia-api` (`web/versao.html`, `versao.js`, `versao.css`), com o esqueleto do estúdio (`estudio.css`): trilha de passos, uma tela só, sem rolagem do celular ao monitor. Sem login, mostra o que é e o botão "Entrar com Google".
 
-1. **Identidade.** Nome da versão (ex.: "Vigia Silva"), nome da empresa, logo (PNG ou JPG, até 512 KB). O ícone da aba do navegador é o de sempre, com a cor de destaque da versão.
-2. **Cor.** Cor de destaque, no lugar do verde (`--c-green`). A base continua preta (`DESIGN.md`). O assistente mostra uma tela de exemplo ao vivo e **recusa cor sem contraste**: pelo menos 4,5:1 sobre o fundo preto, que vale tanto para detalhe quanto para texto.
+1. **Identidade.** Nome da versão (ex.: "Vigia Silva"), nome da empresa, logo (PNG ou JPG, até 8 MB na entrada). O navegador **ajusta o logo sozinho**: acha o fundo pelos quatro cantos (transparente ou uma cor), recorta as bordas vazias, centraliza num quadrado de 256×256 com 10% de margem, preenche com o fundo da própria imagem (branco, se era transparente) e grava PNG (8 a 20 KB nos testes). O ícone da aba do navegador é o de sempre, com a cor de destaque da versão.
+2. **Cor.** Uma das **8 cores fixas** (`cf_versao::receita::PALETA`): Verde (o oficial), Azul, Ciano, Amarelo, Laranja, Vermelho, Rosa e Roxo, todas com contraste de 4,5:1 ou mais sobre o fundo preto (um teste confere). Entra no lugar do verde (`--c-green`); a base continua preta (`DESIGN.md`). Não há seletor de cor livre: o servidor recusa qualquer cor fora da lista, e receita importada com cor antiga pede para escolher de novo. O assistente mostra uma tela de exemplo ao vivo.
 3. **Inteligências.** As cinco do `cf_core::inteligencias::INTELIGENCIAS` (passagem, presença, densidade, permanência, calor), com o que cada uma faz e o peso (leve, médio, pesado). As não escolhidas somem dos menus.
 4. **Detecções.** As classes do modelo padrão, em grupos (seção abaixo), com o aviso de foco.
 5. **Revisão e termo.** Resumo das escolhas (uma linha só no celular), conferência no servidor (`POST /api/versoes/conferir`, que já recusa marca de fabricante), termo de responsabilidade e o botão **Gerar**, que só liga com a receita conferida e o "Li e aceito".
@@ -90,7 +90,7 @@ Um **JSON só**, validado por `cf_versao::receita` (crate `crates/cf-versao`). O
 
 - Sem senha, token, e-mail do cliente ou qualquer dado de cliente.
 - Texto livre (nome e empresa) entra **como dado**. Nunca vira código: o `build.rs` grava como literal Rust escapado. Até 40 caracteres, sem `< > & " \` nem caracteres de controle.
-- Recusa: formato ou versão de formato errados, commit que não é hexadecimal, marca de fabricante no nome ou na empresa, logo que não é PNG/JPG de verdade (confere os primeiros bytes) ou passa de 512 KB, cor sem contraste, inteligência desconhecida ou repetida, classe fora de 0–79 ou repetida, lista vazia, e hash que não confere (receita alterada à mão).
+- Recusa: formato ou versão de formato errados, commit que não é hexadecimal, marca de fabricante no nome ou na empresa, logo que não é PNG/JPG de verdade (confere os primeiros bytes) ou passa de 512 KB, cor fora da lista de 8, inteligência desconhecida ou repetida, classe fora de 0–79 ou repetida, lista vazia, e hash que não confere (receita alterada à mão).
 - Receita importada de outra versão base é aceita se o formato bater; o assistente avisa o que mudou na versão nova.
 
 ## O que a receita muda no código

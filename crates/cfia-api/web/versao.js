@@ -46,8 +46,9 @@
     ["rua", "Rua"],
     ["outros", "Outros"],
   ];
-  // Cores prontas: todas passam de 4,5:1 sobre o preto (conferido na hora).
-  const PALETA = ["#06cb3f", "#5aa9ff", "#3fd0d4", "#ffb347", "#f5d547", "#ff7a6b", "#ff8ac9", "#b39dff"];
+  // Cores fixas: vêm do servidor (cf_versao::receita::PALETA), que só aceita estas.
+  const paleta = () => (CAT && CAT.paleta) || [{ nome: "Azul", cor: "#5aa9ff" }];
+  const naPaleta = (hex) => paleta().some((p) => p.cor === String(hex).toLowerCase());
   let CAT = null;
 
   // ------------------------------------------------------------ estado
@@ -117,7 +118,7 @@
       if (n.length < 2) { msg("#identidade-msg", "Dê um nome à versão (pelo menos 2 letras).", "err"); return false; }
       if (/[<>&"\\]/.test(S.nome + S.empresa)) { msg("#identidade-msg", 'Não use os caracteres < > & " \\ no nome.', "err"); return false; }
     }
-    if (id === "cor" && contraste(S.destaque) < 4.5) { msg("#cor-msg", "Essa cor some no fundo preto. Escolha uma mais clara.", "err"); return false; }
+    if (id === "cor" && !naPaleta(S.destaque)) { msg("#cor-msg", "Escolha uma das cores da lista.", "err"); return false; }
     if (id === "inteligencias" && !S.intel.size) { msg("#intel-msg", "Escolha pelo menos uma inteligência.", "err"); return false; }
     if (id === "deteccoes" && !S.classes.size) { $("#det-conta").textContent = "Escolha pelo menos uma detecção."; return false; }
     return true;
@@ -153,15 +154,66 @@
     $("#pv-logo").replaceChildren(S.logo ? el("img", { src: S.logo, alt: "" }) : "");
     $("#pv-logo").classList.toggle("vazio", !S.logo);
   }
-  $("#logo").onchange = (ev) => {
+  // Logo: o navegador recorta as bordas vazias, centraliza num quadrado com
+  // margem e reduz para 256×256. Qualquer imagem fica igual no menu do programa.
+  const LOGO_LADO = 256;
+  const LOGO_MARGEM = 0.1;
+  const ENTRADA_MAX = 8 * 1024 * 1024;
+  async function adaptarLogo(arquivo) {
+    const img = await createImageBitmap(arquivo);
+    // Analisa numa cópia de até 1024 px (rápido mesmo com foto grande).
+    const k = Math.min(1, 1024 / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * k)), h = Math.max(1, Math.round(img.height * k));
+    const a = document.createElement("canvas");
+    a.width = w; a.height = h;
+    const ga = a.getContext("2d", { willReadFrequently: true });
+    ga.drawImage(img, 0, 0, w, h);
+    const px = ga.getImageData(0, 0, w, h).data;
+    const em = (x, y) => (y * w + x) * 4;
+    // Fundo: o que aparece nos quatro cantos (transparente ou uma cor).
+    const cantos = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]].map(([x, y]) => em(x, y));
+    const transparente = cantos.filter((i) => px[i + 3] < 32).length >= 3;
+    const media = (c) => Math.round(cantos.reduce((t, i) => t + px[i + c], 0) / 4);
+    const fundo = [media(0), media(1), media(2)];
+    const ehConteudo = (i) => px[i + 3] > 24 && (transparente
+      || Math.abs(px[i] - fundo[0]) + Math.abs(px[i + 1] - fundo[1]) + Math.abs(px[i + 2] - fundo[2]) > 48);
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (ehConteudo(em(x, y))) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 < 0) { x0 = 0; y0 = 0; x1 = w - 1; y1 = h - 1; } // só fundo: usa tudo
+    const recorte = { x: x0 / k, y: y0 / k, w: (x1 - x0 + 1) / k, h: (y1 - y0 + 1) / k };
+    // Quadrado com o fundo da própria imagem (ou branco, se era transparente).
+    const q = document.createElement("canvas");
+    q.width = q.height = LOGO_LADO;
+    const g = q.getContext("2d");
+    g.fillStyle = transparente ? "#ffffff" : `rgb(${fundo.join(",")})`;
+    g.fillRect(0, 0, LOGO_LADO, LOGO_LADO);
+    const util = LOGO_LADO * (1 - 2 * LOGO_MARGEM);
+    const esc = Math.min(util / recorte.w, util / recorte.h);
+    const dw = recorte.w * esc, dh = recorte.h * esc;
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = "high";
+    g.drawImage(img, recorte.x, recorte.y, recorte.w, recorte.h, (LOGO_LADO - dw) / 2, (LOGO_LADO - dh) / 2, dw, dh);
+    img.close();
+    let url = q.toDataURL("image/png");
+    if (url.length > (CAT ? CAT.logo_max : 524288)) url = q.toDataURL("image/jpeg", 0.9);
+    return { url, cortou: x0 > 0 || y0 > 0 || x1 < w - 1 || y1 < h - 1 };
+  }
+  $("#logo").onchange = async (ev) => {
     const f = ev.target.files[0];
     ev.target.value = "";
     if (!f) return;
     if (!["image/png", "image/jpeg"].includes(f.type)) { msg("#identidade-msg", "O logo precisa ser PNG ou JPG.", "err"); return; }
-    if (f.size > (CAT ? CAT.logo_max : 524288)) { msg("#identidade-msg", "O logo passa de 512 KB. Diminua a imagem e tente de novo.", "err"); return; }
-    const leitor = new FileReader();
-    leitor.onload = () => { S.logo = String(leitor.result); S.conferida = false; desenharLogo(); rascunho(); msg("#identidade-msg"); };
-    leitor.readAsDataURL(f);
+    if (f.size > ENTRADA_MAX) { msg("#identidade-msg", "Essa imagem passa de 8 MB. Escolha uma menor.", "err"); return; }
+    msg("#identidade-msg", "Ajustando o logo…");
+    try {
+      const { url, cortou } = await adaptarLogo(f);
+      S.logo = url; S.conferida = false; desenharLogo(); rascunho();
+      msg("#identidade-msg", cortou ? "Logo ajustado: tiramos as bordas vazias e centralizamos no quadrado." : "Logo ajustado e centralizado no quadrado.", "ok");
+    } catch (_) {
+      msg("#identidade-msg", "Não deu para ler essa imagem. Tente outro arquivo PNG ou JPG.", "err");
+    }
   };
   $("#logo-tirar").onclick = () => { S.logo = null; S.conferida = false; desenharLogo(); rascunho(); };
 
@@ -175,12 +227,16 @@
       const id = r.identidade || {};
       S.nome = String(id.nome || ""); S.empresa = String(id.empresa || "");
       S.logo = typeof id.logo === "string" ? id.logo : null;
-      if (r.cores && /^#[0-9a-f]{6}$/i.test(r.cores.destaque)) S.destaque = r.cores.destaque.toLowerCase();
+      let corFora = false;
+      if (r.cores && /^#[0-9a-f]{6}$/i.test(r.cores.destaque)) {
+        if (naPaleta(r.cores.destaque)) S.destaque = r.cores.destaque.toLowerCase();
+        else corFora = true;
+      }
       if (Array.isArray(r.inteligencias)) S.intel = new Set(r.inteligencias.filter((i) => INTEL[i]));
       if (Array.isArray(r.classes)) S.classes = new Set(r.classes.filter((c) => Number.isInteger(c) && c >= 0 && c < 80));
       S.conferida = false;
       preencher(); rascunho();
-      msg("#identidade-msg", `Receita "${S.nome}" carregada. Confira os passos e gere de novo.`, "ok");
+      msg("#identidade-msg", `Receita "${S.nome}" carregada.${corFora ? " A cor dela não está mais na lista: escolha outra no passo 2." : ""} Confira os passos e gere de novo.`, "ok");
     } catch (e) {
       msg("#identidade-msg", e instanceof SyntaxError ? "Esse arquivo não é um JSON válido." : e.message, "err");
     }
@@ -198,20 +254,19 @@
     desenharCor(); rascunho();
   }
   function desenharCor() {
-    $("#paleta").replaceChildren(...PALETA.filter((c) => contraste(c) >= 4.5).map((c) => {
-      const b = el("button", { type: "button", class: "ver-cor", role: "radio", "aria-checked": String(c === S.destaque), "aria-label": c, title: c });
-      b.style.setProperty("--amostra", c);
-      b.onclick = () => escolherCor(c);
+    if (!naPaleta(S.destaque)) S.destaque = paleta()[1] ? paleta()[1].cor : paleta()[0].cor;
+    $("#paleta").replaceChildren(...paleta().map(({ nome, cor }) => {
+      const amostra = el("span", { class: "ver-cor-amostra", "aria-hidden": "true" });
+      amostra.style.setProperty("--amostra", cor);
+      const b = el("button", { type: "button", class: "ver-cor", role: "radio", "aria-checked": String(cor === S.destaque) }, amostra, el("span", {}, nome));
+      b.onclick = () => escolherCor(cor);
       return b;
     }));
-    $("#cor-propria").value = S.destaque;
     $("#previa").style.setProperty("--pv", S.destaque);
     $("#pv-nome").textContent = S.nome.trim() || "Sua versão";
-    const c = contraste(S.destaque);
-    if (c < 4.5) msg("#cor-msg", `Contraste ${c.toFixed(1).replace(".", ",")}:1 sobre o preto. O mínimo é 4,5:1: essa cor some na tela.`, "err");
-    else msg("#cor-msg", `Contraste ${c.toFixed(1).replace(".", ",")}:1 sobre o preto.`, "ok");
+    const p = paleta().find((x) => x.cor === S.destaque);
+    msg("#cor-msg", `${p ? p.nome : ""} · contraste ${contraste(S.destaque).toFixed(1).replace(".", ",")}:1 sobre o preto.`, "ok");
   }
-  $("#cor-propria").oninput = (ev) => escolherCor(ev.target.value);
 
   // ------------------------------------------------------------ 3. inteligências
   function desenharIntel() {

@@ -16,6 +16,20 @@ pub const INTELIGENCIAS: &[&str] = &["passagem", "presenca", "densidade", "perma
 /// Logo de até 512 KB depois de decodificado.
 pub const LOGO_MAX: usize = 512 * 1024;
 
+/// Cores de destaque que a versão pode usar: uma lista fixa, todas já
+/// conferidas contra o fundo preto (4,5:1 ou mais), para nenhuma versão sair
+/// com cor apagada ou estranha. A primeira é o verde do programa oficial.
+pub const PALETA: &[(&str, &str)] = &[
+    ("Verde", "#06cb3f"),
+    ("Azul", "#5aa9ff"),
+    ("Ciano", "#3fd0d4"),
+    ("Amarelo", "#f5d547"),
+    ("Laranja", "#ffb347"),
+    ("Vermelho", "#ff7a6b"),
+    ("Rosa", "#ff8ac9"),
+    ("Roxo", "#b39dff"),
+];
+
 /// Marcas de fabricante que não podem aparecer no nome (Lei 9.279/1996).
 /// Nomes longos valem dentro de outra palavra ("HikvisionPro"); os curtos só
 /// como palavra inteira, para não barrar "jflores" nem "axismundi".
@@ -169,6 +183,12 @@ impl ReceitaVersao {
         }
         self.logo_bytes()?;
         let cor = rgb(&self.cores.destaque).ok_or("cor de destaque inválida (use #rrggbb)")?;
+        if !PALETA
+            .iter()
+            .any(|(_, hex)| hex.eq_ignore_ascii_case(&self.cores.destaque))
+        {
+            return Err("escolha uma das cores da lista".into());
+        }
         let c = contraste(cor, (0, 0, 0));
         if c < 4.5 {
             return Err(format!(
@@ -425,7 +445,8 @@ mod tests {
                 "fabricante",
             ),
             (|r| r.identidade.nome = "JFL Câmeras".into(), "fabricante"),
-            (|r| r.cores.destaque = "#123456".into(), "contraste"),
+            (|r| r.cores.destaque = "#123456".into(), "cores da lista"),
+            (|r| r.cores.destaque = "#5aa9fe".into(), "cores da lista"),
             (|r| r.cores.destaque = "azul".into(), "#rrggbb"),
             (|r| r.base.commit = "xyz".into(), "commit"),
             (
@@ -463,6 +484,20 @@ mod tests {
         assert_eq!(bytes, png);
         r.identidade.logo = Some(format!("data:image/jpeg;base64,{b64}"));
         assert!(r.validar().unwrap_err().contains("não é a imagem"));
+    }
+
+    #[test]
+    fn paleta_toda_legivel_e_sem_repeticao() {
+        for (nome, hex) in PALETA {
+            let c = contraste(rgb(hex).unwrap(), (0, 0, 0));
+            assert!(c >= 4.5, "{nome} {hex}: contraste {c:.1}");
+        }
+        for (i, (_, hex)) in PALETA.iter().enumerate() {
+            assert!(!PALETA[..i].iter().any(|(_, h)| h == hex));
+        }
+        let mut r = exemplo();
+        r.cores.destaque = "#5AA9FF".into();
+        assert!(r.validar().is_ok(), "maiúscula ou minúscula, tanto faz");
     }
 
     #[test]

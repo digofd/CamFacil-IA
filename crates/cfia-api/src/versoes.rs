@@ -134,6 +134,10 @@ pub async fn catalogo(State(s): State<AppState>) -> Json<Value> {
         "classes": &cf_versao::coco::CLASSES[..],
         "padrao": cf_versao::coco::PADRAO,
         "logo_max": cf_versao::receita::LOGO_MAX,
+        "paleta": cf_versao::receita::PALETA
+            .iter()
+            .map(|(nome, hex)| json!({ "nome": nome, "cor": hex }))
+            .collect::<Vec<_>>(),
         "por_dia": MAX_POR_DIA,
         "termo": TERMO,
     }))
