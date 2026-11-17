@@ -6,7 +6,7 @@ Versão atual: ver `version` no `Cargo.toml` da raiz (a release sai sozinha quan
 
 ## Leia antes de codar (só o necessário para a tarefa)
 - Produto: `docs/PRD.md`
-- Núcleo: `docs/sdd/SDD-01-nucleo.md` · Módulos: `SDD-02` · Educação: `SDD-03` · Integrações: `SDD-04` · Rede: `SDD-05` · App/TV/Web: `SDD-06` · Modo estúdio: `SDD-07` · Contas e isolamento: `SDD-08` · Inteligências por regra: `SDD-09` · IA avançada (proposta): `SDD-10` · LGPD: `docs/legal/`
+- Núcleo: `docs/sdd/SDD-01-nucleo.md` · Módulos: `SDD-02` · Educação: `SDD-03` · Integrações: `SDD-04` · Rede: `SDD-05` · App/TV/Web: `SDD-06` · Modo estúdio: `SDD-07` · Contas e isolamento: `SDD-08` · Inteligências por regra: `SDD-09` · IA avançada (proposta): `SDD-10` · Gerar sua versão (proposta): `SDD-12` · LGPD: `docs/legal/`
 - Web app e API: **https://cfia.ysafe.com.br** (Dokploy, ver `docs/DEPLOY.md`)
 - Escolinha (instrução) fica no site em `crates/cfia-api/web/escola.*`; programa local é só operação (ADR 0008)
 - Decisões: `docs/adr/` (0001 a 0017) · Visual: `DESIGN.md` e `web/tokens.css` (redesign com a skill `impeccable`)
