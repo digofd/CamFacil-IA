@@ -154,7 +154,8 @@ async function carregarMinhaVersao() {
   };
   if (v.estado !== "fila" && v.estado !== "compilando") acoes.append(limpar);
   const partes = [
-    el("h2", { class: "mv-nome" }, v.nome),
+    el("h2", { class: "mv-titulo" }, v.nome),
+    el("p", { class: "mv-curto" }, `${ROTULO_ESTADO[v.estado] || v.estado} · ${v.downloads ?? 0} download${v.downloads === 1 ? "" : "s"} · ${data(v.terminado_em || v.criado_em)}`),
     el("dl", { class: "rows mv-ficha" }, ...linhas.flatMap(([k, val]) => [el("dt", {}, k), el("dd", {}, val)])),
   ];
   if (v.estado === "pronta" && v.link) {

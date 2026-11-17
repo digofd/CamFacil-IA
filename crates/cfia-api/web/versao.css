@@ -113,6 +113,13 @@
 .ver-perigo { color: var(--c-danger); }
 .ver-perigo:hover { color: var(--c-danger); border-color: var(--c-danger); }
 
+/* Pronta: barra e estimativa já não dizem nada; o espaço vai para o aviso. */
+.ver-andamento.e-pronta .ver-barra { display: none; }
+@media (max-width: 999px), (max-height: 860px) {
+  .ver-andamento.e-pronta { gap: var(--s2); }
+  .ver-andamento.e-pronta #estimativa, .ver-compartilhar .tiny { display: none; }
+  .ver-baixar .btn.grande { height: 38px; padding: 0 var(--s3); font-size: var(--fs-md); }
+}
 @media (max-width: 999px), (max-height: 620px) {
   .ver-entrada { grid-template-columns: minmax(0, 1fr); gap: var(--s3); }
   .ver-previa { min-height: 150px; grid-template-columns: 120px minmax(0, 1fr); }
@@ -127,6 +134,7 @@
   .ver-resumo-curto { display: block; }
   .ver-termo { padding: var(--s3); gap: var(--s2); }
   .ver-termo ul { font-size: var(--fs-xs); }
+  .ver-baixar { display: grid; grid-template-columns: 1.4fr 1fr; }
   .ver-baixar .btn { width: 100%; }
 }
 @media (max-height: 760px) {
