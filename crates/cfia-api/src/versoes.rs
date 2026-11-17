@@ -84,9 +84,70 @@ impl Config {
     }
 }
 
+/// Versão do termo de responsabilidade que o técnico aceita no assistente.
+/// Mudou o texto do termo em `web/versao.html`, muda esta data.
+pub const TERMO: &str = "2026-11-17";
+
 #[derive(Deserialize)]
 pub struct Pedido {
     receita: Value,
+    /// A versão do termo aceito ([`TERMO`]).
+    #[serde(default)]
+    termo: String,
+}
+
+/// O servidor decide a base, o autor e a data: o técnico não escolhe. Uma
+/// receita importada (com base, autor e hash antigos) vira um pedido novo.
+fn montar(mut v: Value, commit: &str, autor: String) -> Result<ReceitaVersao, Falha> {
+    let obj = v
+        .as_object_mut()
+        .ok_or_else(|| erro(StatusCode::BAD_REQUEST, "receita inválida"))?;
+    let base = Base {
+        versao: env!("CARGO_PKG_VERSION").into(),
+        commit: commit.into(),
+    };
+    let autor = Autor {
+        nome: autor,
+        gerado_em: time::OffsetDateTime::now_utc()
+            .format(&time::format_description::well_known::Rfc3339)
+            .map_err(interno)?,
+    };
+    obj.insert("base".into(), serde_json::to_value(base).map_err(interno)?);
+    obj.insert(
+        "autor".into(),
+        serde_json::to_value(autor).map_err(interno)?,
+    );
+    obj.remove("hash");
+    let r: ReceitaVersao = serde_json::from_value(v)
+        .map_err(|e| erro(StatusCode::BAD_REQUEST, &format!("receita inválida: {e}")))?;
+    let r = r.assinada();
+    r.validar().map_err(|e| erro(StatusCode::BAD_REQUEST, &e))?;
+    Ok(r)
+}
+
+/// `GET /api/versoes/catalogo` (público): o que o assistente oferece.
+pub async fn catalogo(State(s): State<AppState>) -> Json<Value> {
+    Json(json!({
+        "ligado": s.versoes.base_commit.is_some(),
+        "versao_base": env!("CARGO_PKG_VERSION"),
+        "inteligencias": cf_versao::receita::INTELIGENCIAS,
+        "classes": &cf_versao::coco::CLASSES[..],
+        "padrao": cf_versao::coco::PADRAO,
+        "logo_max": cf_versao::receita::LOGO_MAX,
+        "por_dia": MAX_POR_DIA,
+        "termo": TERMO,
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct Conferir {
+    receita: Value,
+}
+
+/// `POST /api/versoes/conferir` (público): confere a receita, sem gravar nada.
+pub async fn conferir(Json(c): Json<Conferir>) -> Res {
+    let r = montar(c.receita, "0000000", "Técnico".into())?;
+    Ok(Json(json!({ "ok": true, "nome": r.identidade.nome })))
 }
 
 /// Nome da conta como autor da receita, dentro das regras do campo.
@@ -121,32 +182,13 @@ pub async fn pedir(
             "Gerar sua versão ainda não está ligado neste servidor",
         )
     })?;
-    // O servidor decide a base, o autor e a data: o técnico não escolhe. Uma
-    // receita importada (com base, autor e hash antigos) vira um pedido novo.
-    let mut v = p.receita;
-    let obj = v
-        .as_object_mut()
-        .ok_or_else(|| erro(StatusCode::BAD_REQUEST, "receita inválida"))?;
-    let base = Base {
-        versao: env!("CARGO_PKG_VERSION").into(),
-        commit: commit.clone(),
-    };
-    let autor = Autor {
-        nome: nome_autor(&t),
-        gerado_em: time::OffsetDateTime::now_utc()
-            .format(&time::format_description::well_known::Rfc3339)
-            .map_err(interno)?,
-    };
-    obj.insert("base".into(), serde_json::to_value(base).map_err(interno)?);
-    obj.insert(
-        "autor".into(),
-        serde_json::to_value(autor).map_err(interno)?,
-    );
-    obj.remove("hash");
-    let r: ReceitaVersao = serde_json::from_value(v)
-        .map_err(|e| erro(StatusCode::BAD_REQUEST, &format!("receita inválida: {e}")))?;
-    let r = r.assinada();
-    r.validar().map_err(|e| erro(StatusCode::BAD_REQUEST, &e))?;
+    if p.termo != TERMO {
+        return Err(erro(
+            StatusCode::BAD_REQUEST,
+            "aceite o termo de responsabilidade da versão",
+        ));
+    }
+    let r = montar(p.receita, &commit, nome_autor(&t))?;
     let receita = serde_json::to_value(&r).map_err(interno)?;
     let hash = r.hash.clone().unwrap_or_default();
 
@@ -189,7 +231,7 @@ pub async fn pedir(
         &tx,
         Some(t.id),
         "versao_pedida",
-        &hash,
+        &format!("{hash} termo {TERMO}"),
         &crate::ip(&headers),
     )
     .await

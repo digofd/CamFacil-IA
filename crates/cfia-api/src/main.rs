@@ -174,6 +174,8 @@ pub fn router(state: AppState) -> Router {
         .route("/ws/agente", get(hub::ws_agente))
         .route("/ws/painel", get(hub::ws_painel))
         .route("/api/versoes", get(versoes::minhas).post(versoes::pedir))
+        .route("/api/versoes/catalogo", get(versoes::catalogo))
+        .route("/api/versoes/conferir", post(versoes::conferir))
         .route("/api/versoes/{id}", get(versoes::ver))
         .route(
             "/api/versoes/{id}/receita.json",

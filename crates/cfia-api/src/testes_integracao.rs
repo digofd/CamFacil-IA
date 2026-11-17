@@ -720,7 +720,7 @@ fn pedido_versao(nome: &str) -> Value {
         "cores": {"destaque": "#5aa9ff"},
         "inteligencias": ["passagem", "presenca"],
         "classes": [0, 16],
-    }})
+    }, "termo": crate::versoes::TERMO})
 }
 
 /// Chamada do compilador: token no `Authorization`, sem cookie nem `Origin`.
@@ -781,6 +781,36 @@ async fn versao_vai_da_fila_ao_executavel() {
     let (_a, sa) = criar_sessao_teste(&s, &format!("va-{}", Uuid::new_v4()), "va@teste").await;
     let (_b, sb) = criar_sessao_teste(&s, &format!("vb-{}", Uuid::new_v4()), "vb@teste").await;
     let tk = Some(TOKEN_COMPILADOR);
+
+    // Sem aceitar o termo, não entra na fila.
+    let mut sem_termo = pedido_versao("Vigia Silva");
+    sem_termo["termo"] = json!("");
+    let (st, _) = chamar(&s, "POST", "/api/versoes", Some(&sa), Some(sem_termo)).await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+    // Catálogo e conferência são públicos e não gravam nada.
+    let (st, v) = chamar(&s, "GET", "/api/versoes/catalogo", None, None).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(v["classes"].as_array().unwrap().len(), 80);
+    assert_eq!(v["ligado"], true);
+    let (st, v) = chamar(
+        &s,
+        "POST",
+        "/api/versoes/conferir",
+        None,
+        Some(pedido_versao("Vigia Hikvision")),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+    assert!(v["erro"].as_str().unwrap().contains("fabricante"));
+    let (st, _) = chamar(
+        &s,
+        "POST",
+        "/api/versoes/conferir",
+        None,
+        Some(pedido_versao("Vigia Silva")),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK);
 
     // Marca de fabricante no nome é recusada antes de entrar na fila.
     let (st, v) = chamar(

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Gerar sua versão · CamFácil IA</title>
+  <meta name="description" content="Monte a sua versão do CamFácil IA sem programar: nome, logo, cor, inteligências e detecções. O servidor compila e você baixa o executável e a receita.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/tokens.css">
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/estudio.css">
+  <link rel="stylesheet" href="/versao.css">
+</head>
+<body class="estudio-body tela doc-tela">
+  <header class="doc-topo">
+    <a class="brand" href="/"><img src="/icon.svg" width="22" height="22" alt=""><span>CamFácil IA</span></a>
+    <span class="badge est-badge">Gerar sua versão</span>
+  </header>
+
+  <main class="est" id="versao">
+    <!-- Entrada: sem login, função desligada ou carregando -->
+    <section class="est-passo est-casa" id="entrada" aria-labelledby="t-entrada">
+      <header class="est-cab">
+        <h1 id="t-entrada">Gere a sua versão do CamFácil IA</h1>
+        <p>Sem programar: escolha nome, logo, cor, inteligências e detecções. O servidor compila e você baixa o executável do Windows e a receita.</p>
+      </header>
+      <div class="ver-entrada">
+        <ol class="est-lista">
+          <li><strong>Identidade.</strong> Nome da versão, da sua empresa e o logo.</li>
+          <li><strong>Cor.</strong> O destaque no lugar do verde.</li>
+          <li><strong>Inteligências e detecções.</strong> Só o que você vende.</li>
+          <li><strong>Gerar.</strong> Leva de 2 a 6 minutos. Você baixa o programa e a receita.</li>
+        </ol>
+        <div class="ver-entrada-acao">
+          <p class="msg" id="entrada-msg">Carregando…</p>
+          <a class="btn primary grande" id="entrar" href="/api/auth/google?voltar=/versao" hidden>Entrar com Google</a>
+        </div>
+      </div>
+      <p class="est-aviso">A versão gerada é sua: instalação, suporte e LGPD com os seus clientes. O código continua livre (AGPL-3.0) e o programa mostra que é uma versão modificada do CamFácil IA.</p>
+    </section>
+
+    <nav class="est-trilha" aria-label="Passos" hidden>
+      <ol class="est-passos" role="tablist">
+        <li><button type="button" role="tab" data-ir="identidade"><span class="num">1</span><span class="rot">Identidade</span></button></li>
+        <li><button type="button" role="tab" data-ir="cor"><span class="num">2</span><span class="rot">Cor</span></button></li>
+        <li><button type="button" role="tab" data-ir="inteligencias"><span class="num">3</span><span class="rot">Inteligências</span></button></li>
+        <li><button type="button" role="tab" data-ir="deteccoes"><span class="num">4</span><span class="rot">Detecções</span></button></li>
+        <li><button type="button" role="tab" data-ir="revisao"><span class="num">5</span><span class="rot">Revisão</span></button></li>
+        <li><button type="button" role="tab" data-ir="gerar"><span class="num">6</span><span class="rot">Gerar</span></button></li>
+      </ol>
+      <p class="est-aviso-curto" aria-hidden="true">Versão sua, código livre (AGPL-3.0).</p>
+      <p class="est-aviso">A versão gerada é sua: instalação, suporte e LGPD com os seus clientes. Guarde a receita: o espaço aqui é gratuito e apagado após 30 dias sem entrar.</p>
+    </nav>
+
+    <!-- 1. Identidade -->
+    <section class="est-passo" id="identidade" role="tabpanel" aria-labelledby="t-identidade" hidden>
+      <header class="est-cab est-cab-linha">
+        <h1 id="t-identidade">Identidade</h1>
+        <label class="btn sm ghost ver-importar">Importar receita<input type="file" id="importar" accept=".json,application/json"></label>
+      </header>
+      <form class="est-form" id="form-identidade" autocomplete="off" novalidate>
+        <label>Nome da versão
+          <input name="nome" maxlength="40" placeholder="Vigia Silva" required>
+        </label>
+        <label>Sua empresa <span class="tiny">(opcional)</span>
+          <input name="empresa" maxlength="40" placeholder="Silva Segurança">
+        </label>
+        <div class="c-classes ver-logo">
+          <span class="rotulo">Logo <span class="tiny">PNG ou JPG, até 512 KB, de preferência quadrado</span></span>
+          <div class="ver-logo-linha">
+            <div class="ver-logo-previa" id="logo-previa" aria-live="polite"><span class="tiny">Sem logo</span></div>
+            <label class="btn sm">Escolher arquivo<input type="file" id="logo" accept="image/png,image/jpeg"></label>
+            <button type="button" class="btn sm ghost" id="logo-tirar" hidden>Tirar</button>
+          </div>
+        </div>
+        <p class="c-acoes tiny">Não use nome, logo ou marca de fabricante (Intelbras, Hikvision, Dahua e outros). A marca que aparece é a sua.</p>
+        <p class="c-acoes msg" id="identidade-msg" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <!-- 2. Cor -->
+    <section class="est-passo" id="cor" role="tabpanel" aria-labelledby="t-cor" hidden>
+      <header class="est-cab">
+        <h1 id="t-cor">Cor de destaque</h1>
+        <p>Entra no lugar do verde: item ativo, botão ligado, foco, ponto ao vivo. A base continua preta.</p>
+      </header>
+      <div class="est-duas">
+        <div class="ver-cores">
+          <div class="ver-paleta" id="paleta" role="radiogroup" aria-label="Cores prontas"></div>
+          <label class="ver-propria">Outra cor
+            <input type="color" id="cor-propria" value="#06cb3f">
+          </label>
+          <p class="msg" id="cor-msg" aria-live="polite"></p>
+        </div>
+        <div class="ver-previa" id="previa" aria-label="Prévia do programa">
+          <div class="pv-rail">
+            <div class="pv-marca"><span class="pv-logo" id="pv-logo"></span><span id="pv-nome">Sua versão</span></div>
+            <span class="pv-item ativo">Início</span><span class="pv-item">Câmeras</span><span class="pv-item">Módulos de IA</span>
+          </div>
+          <div class="pv-corpo">
+            <span class="pv-balao">Presença: 1 pessoa</span>
+            <span class="pv-linha"><span class="pv-chave" aria-hidden="true"></span>Pessoas e veículos</span>
+            <span class="pv-ao-vivo"><span class="pv-ponto"></span>Ao vivo</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Inteligências -->
+    <section class="est-passo" id="inteligencias" role="tabpanel" aria-labelledby="t-intel" hidden>
+      <header class="est-cab">
+        <h1 id="t-intel">Inteligências</h1>
+        <p>As regras que o técnico desenha na câmera. As que você não marcar somem dos menus.</p>
+      </header>
+      <div class="ver-intel" id="lista-intel"></div>
+      <p class="msg" id="intel-msg" aria-live="polite"></p>
+    </section>
+
+    <!-- 4. Detecções -->
+    <section class="est-passo" id="deteccoes" role="tabpanel" aria-labelledby="t-det" hidden>
+      <header class="est-cab est-cab-linha">
+        <h1 id="t-det">Detecções</h1>
+        <p class="tiny" id="det-conta"></p>
+      </header>
+      <p class="ver-foco">Escolha só o que você vai usar com esse cliente. Marcar tudo não deixa o programa mais lento, porque o modelo sempre enxerga todas as classes. Mas enche os menus de opção que você não vende e aumenta os alertas falsos. <strong>Menos classe é mais foco.</strong></p>
+      <div class="seg ver-grupos" id="grupos" role="tablist" aria-label="Grupos"></div>
+      <div class="ver-classes" id="classes" role="group" aria-label="Classes do grupo"></div>
+      <div class="ver-rodape-classes">
+        <p class="tiny ver-legenda"><span class="ver-selo">baixa precisão</span> <span id="grupo-baixa" hidden>todo este grupo: </span>o modelo é o menor (YOLO11n) e erra muito com objeto pequeno ou longe. Use para estudo.</p>
+        <div class="ver-pag" id="pag" hidden>
+          <button type="button" class="btn sm ghost" id="pag-ant" aria-label="Página anterior"><svg class="ico sm" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg></button>
+          <span class="tiny mono" id="pag-pos"></span>
+          <button type="button" class="btn sm ghost" id="pag-prox" aria-label="Próxima página"><svg class="ico sm" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Revisão e termo -->
+    <section class="est-passo" id="revisao" role="tabpanel" aria-labelledby="t-rev" hidden>
+      <header class="est-cab">
+        <h1 id="t-rev">Revisão</h1>
+      </header>
+      <div class="est-duas">
+        <dl class="rows ver-resumo" id="resumo"></dl>
+        <p class="ver-resumo-curto" id="resumo-curto"></p>
+        <div class="ver-termo">
+          <strong>Termo de responsabilidade da versão</strong>
+          <ul>
+            <li>A versão gerada é minha: instalação, uso, suporte e LGPD com os meus clientes (termos, autorização e placa).</li>
+            <li>Não uso nome, logo ou identidade de fabricante.</li>
+            <li>Sei que o CamFácil IA é ambiente de aprendizagem e validação, não sistema de segurança profissional.</li>
+            <li>Sei que o espaço é apagado após 30 dias sem entrar e que guardar a receita é comigo.</li>
+            <li>Sei que a geração fica registrada com o meu nome e o hash da receita.</li>
+          </ul>
+          <label class="ver-aceite"><input type="checkbox" id="aceito"> Li e aceito</label>
+          <button type="button" class="btn primary grande" id="gerar" disabled>Gerar minha versão</button>
+          <p class="msg" id="revisao-msg" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Gerar: fila, compilando, pronta ou erro -->
+    <section class="est-passo" id="gerar-passo" role="tabpanel" aria-labelledby="t-gerar" hidden>
+      <header class="est-cab">
+        <h1 id="t-gerar">Sua versão</h1>
+        <p id="gerar-sub">Você pode fechar a página: a compilação continua.</p>
+      </header>
+      <div class="ver-andamento" id="andamento">
+        <p class="ver-etapa" id="etapa" aria-live="polite">—</p>
+        <div class="ver-barra" role="progressbar" aria-labelledby="etapa" aria-valuemin="0" aria-valuemax="100" id="barra"><span></span></div>
+        <p class="tiny" id="estimativa"></p>
+        <div class="ver-pronta" id="pronta" hidden>
+          <div class="ver-baixar">
+            <a class="btn primary grande" id="baixar-exe" href="#" download>Baixar o programa (.exe)</a>
+            <a class="btn grande" id="baixar-receita" href="#" download>Baixar a receita</a>
+          </div>
+          <ul class="ver-avisos">
+            <li><strong>Guarde a receita</strong> (no seu Google Drive ou onde preferir). Com ela você gera a mesma versão de novo. O espaço aqui é apagado após 30 dias sem entrar.</li>
+            <li>O executável não tem assinatura digital: o Windows pode mostrar o aviso do SmartScreen. Clique em "Mais informações" e "Executar assim mesmo".</li>
+            <li>No programa, a tela Início mostra que é uma versão modificada, o hash da receita e o botão para exportar a receita.</li>
+          </ul>
+        </div>
+        <div class="ver-erro" id="erro-bloco" hidden>
+          <p class="msg err" id="erro-msg"></p>
+          <button type="button" class="btn" id="tentar">Voltar à revisão</button>
+        </div>
+        <button type="button" class="btn sm ghost" id="nova" hidden>Gerar outra versão</button>
+      </div>
+    </section>
+
+    <nav class="est-nav" aria-label="Avançar e voltar" hidden>
+      <button class="btn" type="button" id="ant"><svg class="ico sm" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg><span>Voltar</span></button>
+      <span class="tiny mono" id="pos">1 de 5</span>
+      <button class="btn primary" type="button" id="prox"><span>Avançar</span><svg class="ico sm" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></button>
+    </nav>
+  </main>
+  <footer class="foot doc-foot">Software livre (AGPL-3.0). <a href="/estudio">Modo estúdio</a> · <a href="https://github.com/emersoncassis/CamFacil-IA">GitHub</a> · <a href="/">Página inicial</a></footer>
+  <script src="/versao.js" defer></script>
+</body>
+</html>

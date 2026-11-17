@@ -1,6 +1,6 @@
 # SDD-12 — Gerar sua versão
 
-Status: **em produção** · Etapas 1 (receita e build local) e 2 (fila e compilador) feitas na branch `feat/gerar-sua-versao` · complementa o CamFácil IA Builder (`.claude/skills/camfacil-ia-builder/`), o [SDD-08](SDD-08-contas-e-isolamento.md) (contas, isolamento e auditoria), o [SDD-07](SDD-07-modo-estudio.md) (receitas e assistente do estúdio) e o [SDD-09](SDD-09-inteligencias-por-regra.md) (inteligências por regra) · criado em 2026-11-16
+Status: **em produção** · Etapas 1 (receita e build local), 2 (fila e compilador) e 3 (assistente no site) feitas na branch `feat/gerar-sua-versao` · complementa o CamFácil IA Builder (`.claude/skills/camfacil-ia-builder/`), o [SDD-08](SDD-08-contas-e-isolamento.md) (contas, isolamento e auditoria), o [SDD-07](SDD-07-modo-estudio.md) (receitas e assistente do estúdio) e o [SDD-09](SDD-09-inteligencias-por-regra.md) (inteligências por regra) · criado em 2026-11-16
 
 ## Objetivo
 
@@ -36,17 +36,16 @@ Dentro do tenant do técnico, logado com o Google (SDD-08). Menu **Gerar sua ver
 
 ## O assistente
 
-Uma pergunta por tela, sem rolagem, como o assistente do estúdio.
+Página `/versao` do `cfia-api` (`web/versao.html`, `versao.js`, `versao.css`), com o esqueleto do estúdio (`estudio.css`): trilha de passos, uma tela só, sem rolagem do celular ao monitor. Sem login, mostra o que é e o botão "Entrar com Google".
 
 1. **Identidade.** Nome da versão (ex.: "Vigia Silva"), nome da empresa, logo (PNG ou JPG, até 512 KB). O ícone da aba do navegador é o de sempre, com a cor de destaque da versão.
 2. **Cor.** Cor de destaque, no lugar do verde (`--c-green`). A base continua preta (`DESIGN.md`). O assistente mostra uma tela de exemplo ao vivo e **recusa cor sem contraste**: pelo menos 4,5:1 sobre o fundo preto, que vale tanto para detalhe quanto para texto.
 3. **Inteligências.** As cinco do `cf_core::inteligencias::INTELIGENCIAS` (passagem, presença, densidade, permanência, calor), com o que cada uma faz e o peso (leve, médio, pesado). As não escolhidas somem dos menus.
 4. **Detecções.** As classes do modelo padrão, em grupos (seção abaixo), com o aviso de foco.
-5. **Revisão e termo.** Resumo das escolhas, termo de responsabilidade da versão (seção "Responsabilidade") e o botão **Gerar**.
-6. **Compilando.** Posição na fila, etapa, porcentagem e tempo estimado (seção "Progresso").
-7. **Pronto.** Baixar o executável e **baixar a receita**, com o aviso de que o tenant é apagado depois de 30 dias sem login.
+5. **Revisão e termo.** Resumo das escolhas (uma linha só no celular), conferência no servidor (`POST /api/versoes/conferir`, que já recusa marca de fabricante), termo de responsabilidade e o botão **Gerar**, que só liga com a receita conferida e o "Li e aceito".
+6. **Gerar.** Fila (posição), compilando (porcentagem), montando (sem barra) e pronta: baixar o executável e **baixar a receita**, com os avisos de guardar a receita (30 dias), do SmartScreen e de onde o programa mostra a versão. Em erro, mostra o motivo e volta à revisão. Fechar ou recarregar a página volta direto para o andamento.
 
-Atalho no começo: **Importar receita** pula para a revisão com tudo preenchido.
+Atalho no passo 1: **Importar receita** preenche todos os passos a partir de uma receita baixada antes (o servidor carimba base, autor e data de novo). O rascunho fica no navegador (`localStorage`) até gerar. O catálogo vem de `GET /api/versoes/catalogo`, para a tela não repetir a tabela das classes.
 
 ### Aviso das detecções
 
@@ -67,6 +66,7 @@ O modelo padrão é o `modelos/yolo11n.onnx` (YOLO11n, COCO, 80 classes). Hoje o
 
 - **Baixa precisão.** O YOLO11n é o menor modelo. Objeto pequeno ou longe erra muito. Celular, mochila, bolsa e todo o grupo "Outros" levam o selo "baixa precisão, use para estudo".
 - **Biometria.** Nenhuma classe do COCO identifica pessoa. A camada 1 do Builder (LGPD, art. 11) continua garantida.
+- **Na tela.** Um grupo por vez, em abas, com a contagem de marcadas. Grupo que não cabe vira páginas do tamanho do espaço (no "Outros", 3 páginas de 20 numa tela de 1024×768). Grupo inteiro de baixa precisão leva o selo uma vez só.
 - **Mínimo.** Pelo menos uma classe. **Máximo por regra** continua 12 (`validar`).
 - **Modo estúdio** não muda: modelo de estudo continua trazendo as classes da própria receita de estudo.
 
@@ -165,6 +165,17 @@ Ligar: criar `deploy/builder/.env` com `CFIA_API` e `CFIA_BUILDER_TOKEN` e rodar
 - O `.exe` baixado pela rota do técnico tem o mesmo SHA-256 que o compilador enviou, abre no Windows e traz no "Sobre" o autor e a base carimbados pelo servidor e o hash da fila.
 - Pico do contêiner: ~470 MB parado depois do build. A imagem tem 4 GB (Rust, mingw-w64), e o disco da KVM1 foi de 7,4 GB para 25 GB usados nos testes.
 - O primeiro pedido falhou com "não foi possível baixar o código oficial": o repositório de teste (local, de outro dono) caiu na proteção "dubious ownership" do git. Em produção o compilador clona do GitHub.
+
+### Conferido na Etapa 3 (2026-11-17)
+
+No painel do navegador, pelo túnel SSH até um `cfia-api` de teste na KVM1 com o compilador ligado, com uma sessão de teste no lugar do login com Google:
+
+- Sem sessão: a entrada com "Entrar com Google". Com sessão: passo 1.
+- Nome, empresa e logo PNG; cor laranja com a prévia mostrando logo, nome e destaque (contraste 11,6:1); 3 inteligências; as 6 detecções de sempre mais cachorro.
+- Revisão conferida pelo servidor; o botão Gerar só ligou depois do aceite.
+- Fila → compilando → montando → pronta. Recarregar a página no meio do build voltou para o andamento.
+- O `.exe` baixado pelo link da tela abriu no Windows com o nome, o logo, o laranja, as 3 inteligências, as 7 detecções e o autor da conta ("Emerson Teste").
+- Zero rolagem em 1024×768 e em 375×812 nos seis passos. Duas correções saíram daí: o grupo "Outros" passava da altura (agora pagina) e a Revisão passava 220 px no celular (agora o resumo vira uma linha).
 
 ### Medição na KVM1 (2026-11-17)
 
@@ -270,7 +281,7 @@ O `install.ps1` baixa a release oficial. Se rodasse por cima de uma versão pers
 
 1. **Receita e build local** (feita). Formato da receita, validação no `cf-versao`, `build.rs` no `camfacil`, tabela das 80 classes, "Sobre" com receita e hash. Testável com `CFIA_RECEITA=… cargo build`.
 2. **Compilador na VPS** (feita). Fila no `cfia-api`, contêiner `cfia-builder` com mingw-w64, cache e progresso. Falta ligar em produção: subir o `cfia-api` novo e o compilador com o token.
-3. **Assistente no `cfia-api`.** As sete telas, importar receita, termo, download.
+3. **Assistente no `cfia-api`** (feita). Página `/versao`, importar receita, termo (versão `2026-11-17`, exigida no pedido e gravada na auditoria), download e link na seção de ferramentas do site.
 4. **Retenção.** Registro de geração, limpeza de 30 dias, e-mail no 23º dia, política de privacidade.
 5. **Depois.** Linux, APK, "Salvar no meu Drive".
 
