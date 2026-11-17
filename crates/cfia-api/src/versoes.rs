@@ -227,6 +227,25 @@ pub async fn pedir(
         }
         return Err(interno(e));
     }
+    // Registro de geração (12 meses, sobrevive à conta): quem, quando, qual receita.
+    tx.execute(
+        "INSERT INTO registro_versoes(versao_id, tecnico_id, conta_nome, conta_email,
+             receita_sha256, base_versao, base_commit, termo, ip)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        &[
+            &id,
+            &t.id,
+            &t.nome,
+            &t.email,
+            &hash,
+            &env!("CARGO_PKG_VERSION"),
+            &commit,
+            &TERMO,
+            &crate::ip(&headers),
+        ],
+    )
+    .await
+    .map_err(interno)?;
     db::auditar(
         &tx,
         Some(t.id),
@@ -573,6 +592,26 @@ pub async fn executavel(
         let _ = tokio::fs::remove_file(&destino).await;
     }
     r?;
+    // Só o último executável de cada técnico fica no disco (SDD-12).
+    let mut c = s.db.get().await.map_err(interno)?;
+    let tx = db::begin(&mut c, Ctx::Sistema).await.map_err(interno)?;
+    let antigos: Vec<Uuid> = tx
+        .query(
+            "UPDATE versoes SET executavel_bytes = NULL
+             WHERE tecnico_id = (SELECT tecnico_id FROM versoes WHERE id = $1)
+               AND id <> $1 AND executavel_bytes IS NOT NULL
+             RETURNING id",
+            &[&id],
+        )
+        .await
+        .map_err(interno)?
+        .iter()
+        .map(|l| l.get(0))
+        .collect();
+    tx.commit().await.map_err(interno)?;
+    for velho in antigos {
+        let _ = tokio::fs::remove_file(s.versoes.arquivo(velho)).await;
+    }
     Ok(Json(json!({ "ok": true, "sha256": hash })))
 }
 

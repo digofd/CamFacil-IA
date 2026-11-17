@@ -1,6 +1,6 @@
 # SDD-12 — Gerar sua versão
 
-Status: **em produção** · Etapas 1 (receita e build local), 2 (fila e compilador) e 3 (assistente no site) feitas na branch `feat/gerar-sua-versao` · complementa o CamFácil IA Builder (`.claude/skills/camfacil-ia-builder/`), o [SDD-08](SDD-08-contas-e-isolamento.md) (contas, isolamento e auditoria), o [SDD-07](SDD-07-modo-estudio.md) (receitas e assistente do estúdio) e o [SDD-09](SDD-09-inteligencias-por-regra.md) (inteligências por regra) · criado em 2026-11-16
+Status: **em produção** · Etapas 1 (receita e build local), 2 (fila e compilador), 3 (assistente no site) e 4 (retenção) feitas na branch `feat/gerar-sua-versao` · complementa o CamFácil IA Builder (`.claude/skills/camfacil-ia-builder/`), o [SDD-08](SDD-08-contas-e-isolamento.md) (contas, isolamento e auditoria), o [SDD-07](SDD-07-modo-estudio.md) (receitas e assistente do estúdio) e o [SDD-09](SDD-09-inteligencias-por-regra.md) (inteligências por regra) · criado em 2026-11-16
 
 ## Objetivo
 
@@ -236,12 +236,30 @@ O armazenamento é gratuito. Por isso:
 - **A receita é responsabilidade do técnico.** A tela "Pronto" e o e-mail pedem que ele guarde a receita (no Google Drive dele ou onde preferir).
 - O download do executável é só para o dono, com link assinado de curta duração.
 
+### Como está feito (Etapa 4)
+
+- **Atividade:** coluna `tecnicos.ultimo_acesso`, atualizada no login e em qualquer chamada logada (no máximo uma escrita por hora).
+- **Laço de hora em hora** (`crates/cfia-api/src/retencao.rs`, primeira rodada 1 minuto depois de subir):
+  1. **Aviso:** técnico com versões e de 23 a 30 dias sem entrar recebe um e-mail, uma vez por período de inatividade (`tecnicos.aviso_retencao_em`). O assunto e o texto trazem os dias reais ("Faz 25 dias…", "apagada em 5 dias") e a data prevista. O envio fica na auditoria (`versao_aviso_retencao`).
+  2. **Limpeza:** com mais de 30 dias sem entrar, apaga as versões e os executáveis do disco, menos a que está compilando.
+  3. **Registro:** apaga o registro de geração com mais de 12 meses.
+- **Só o último executável:** quando uma versão fica pronta, os executáveis anteriores do mesmo técnico saem do disco (`executavel_bytes` vira nulo; o download responde 410).
+- **E-mail por SMTP genérico** (`lettre`, com `aws-lc-rs`, o mesmo provedor de criptografia do `reqwest`): `CFIA_SMTP_URL` (ex.: `smtps://usuario:senha@smtp.provedor.com:465`) e `CFIA_EMAIL_DE` (ex.: `CamFácil IA <nao-responda@cfia.ysafe.com.br>`). Serve qualquer provedor. Sem eles, a limpeza roda igual e o aviso conta como não enviado.
+- **Política de privacidade** (`web/privacidade.html`): o que o "Gerar sua versão" guarda, a base legal do registro, o provedor de e-mail e os prazos.
+
 ### Registro de geração
 
-Uma linha por versão gerada: `tecnico_id`, nome e e-mail da conta no momento, data, versão base e commit, **hash da receita**, versão do termo aceito e IP.
+Tabela `registro_versoes` (migração `0006_retencao.sql`), gravada na mesma transação do pedido: versão, técnico, nome e e-mail da conta no momento, hash da receita, versão e commit da base, termo aceito, IP e data.
 
-- Não é apagado com o tenant, nem com a conta excluída a pedido, durante os 12 meses. Base: legítimo interesse e exercício regular de direito (LGPD, art. 7º, VI e IX). A política de privacidade passa a citar isso.
+- **Sem chave estrangeira:** sobrevive à limpeza do tenant e à conta excluída a pedido. Base: legítimo interesse e exercício regular de direito (LGPD, art. 7º, VI e IX), citados na política de privacidade.
+- **RLS:** o técnico só insere o próprio registro; não lê, não altera, não apaga. Ler e expirar é do sistema. O papel da aplicação não tem `UPDATE` na tabela.
 - **O hash vai dentro do executável.** Se aparecer uma versão problemática, o "Sobre" mostra o hash e o registro mostra quem gerou e o que escolheu.
+
+### Conferido na Etapa 4 (2026-11-17)
+
+- Testes de integração contra Postgres na KVM1 (28 no total): registro gravado no pedido e invisível ao técnico, aviso no 25º dia sem apagar, acesso atualizando `ultimo_acesso`, limpeza no 31º dia (versão e executável), registro sobrevivendo à limpeza e expirando aos 13 meses, só o último executável no disco.
+- **E-mail de verdade** com o Mailpit (SMTP de teste) e um técnico com 25 dias sem entrar: chegou "Sua versão do CamFácil IA será apagada em 5 dias", com "Faz 25 dias…" e a data prevista. Na rodada seguinte, nenhum e-mail novo. Com 31 dias, a versão foi apagada.
+- Achado no teste: o texto dizia "23 dias" e "7 dias" fixos; agora usa os dias reais.
 
 ## Responsabilidade
 
@@ -282,7 +300,7 @@ O `install.ps1` baixa a release oficial. Se rodasse por cima de uma versão pers
 1. **Receita e build local** (feita). Formato da receita, validação no `cf-versao`, `build.rs` no `camfacil`, tabela das 80 classes, "Sobre" com receita e hash. Testável com `CFIA_RECEITA=… cargo build`.
 2. **Compilador na VPS** (feita). Fila no `cfia-api`, contêiner `cfia-builder` com mingw-w64, cache e progresso. Falta ligar em produção: subir o `cfia-api` novo e o compilador com o token.
 3. **Assistente no `cfia-api`** (feita). Página `/versao`, importar receita, termo (versão `2026-11-17`, exigida no pedido e gravada na auditoria), download e link na seção de ferramentas do site.
-4. **Retenção.** Registro de geração, limpeza de 30 dias, e-mail no 23º dia, política de privacidade.
+4. **Retenção** (feita). Registro de geração, limpeza de 30 dias, e-mail no 23º dia por SMTP genérico, só o último executável, política de privacidade.
 5. **Depois.** Linux, APK, "Salvar no meu Drive".
 
 ## Testes
@@ -295,5 +313,5 @@ O `install.ps1` baixa a release oficial. Se rodasse por cima de uma versão pers
 ## Decisões em aberto
 
 - **Classes perigosas de vender.** Faca (43), tesoura (76) e taco de beisebol (34) podem ser vendidas como "detecção de arma", com precisão baixa. Ficam no grupo "Outros" com o selo, ou saem da lista?
-- **Serviço de e-mail.** O aviso do 23º dia entra na primeira versão. O `cfia-api` ainda não manda e-mail: escolher o serviço (SMTP próprio ou provedor).
+- **Provedor de e-mail.** O código fala SMTP com qualquer provedor; falta escolher qual (e configurar SPF/DKIM do domínio) e preencher `CFIA_SMTP_URL` e `CFIA_EMAIL_DE` no servidor.
 - **"Salvar no meu Drive"** fica para depois da primeira versão.

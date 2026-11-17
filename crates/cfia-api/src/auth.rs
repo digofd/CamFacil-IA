@@ -109,6 +109,18 @@ pub async fn sessao(state: &AppState, headers: &HeaderMap) -> Result<Tecnico, Fa
         )
         .await
         .map_err(crate::interno)?;
+    // Atividade para a retenção do "Gerar sua versão" (SDD-12), no máximo
+    // uma escrita por hora por técnico.
+    if let Some(r) = &row {
+        let id: Uuid = r.get(0);
+        tx.execute(
+            "UPDATE tecnicos SET ultimo_acesso = now()
+             WHERE id = $1 AND ultimo_acesso < now() - interval '1 hour'",
+            &[&id],
+        )
+        .await
+        .map_err(crate::interno)?;
+    }
     tx.commit().await.map_err(crate::interno)?;
     let row =
         row.ok_or_else(|| erro(StatusCode::UNAUTHORIZED, "sessão expirada, entre de novo"))?;
@@ -324,7 +336,8 @@ pub async fn retorno(
     let id: Uuid = tx
         .query_one(
             "INSERT INTO tecnicos(id, google_sub, email, nome) VALUES ($1, $2, $3, $4)
-             ON CONFLICT (google_sub) DO UPDATE SET email = excluded.email, nome = excluded.nome
+             ON CONFLICT (google_sub) DO UPDATE SET email = excluded.email, nome = excluded.nome,
+                 ultimo_acesso = now()
              RETURNING id",
             &[&Uuid::new_v4(), &claims.sub, &email, &nome],
         )

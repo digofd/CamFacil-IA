@@ -35,6 +35,7 @@ async fn estado() -> Option<AppState> {
             token: Some(TOKEN_COMPILADOR.into()),
             base_commit: Some("e46a8b7".into()),
         },
+        correio: None,
     })))
 }
 
@@ -835,6 +836,40 @@ async fn versao_vai_da_fila_ao_executavel() {
     let id = v["id"].as_str().unwrap().to_string();
     let hash = v["hash"].as_str().unwrap().to_string();
 
+    // O pedido deixa o registro de geração; o técnico não lê nem apaga.
+    {
+        let vid = Uuid::parse_str(&id).unwrap();
+        let mut c = s.db.get().await.unwrap();
+        let tx = db::begin(&mut c, Ctx::Sistema).await.unwrap();
+        let r = tx
+            .query_one(
+                "SELECT conta_email, receita_sha256, termo FROM registro_versoes WHERE versao_id = $1",
+                &[&vid],
+            )
+            .await
+            .unwrap();
+        assert_eq!(r.get::<_, String>(0), "va@teste");
+        assert_eq!(r.get::<_, String>(1), hash);
+        assert_eq!(r.get::<_, String>(2), crate::versoes::TERMO);
+        tx.commit().await.unwrap();
+        let tx = db::begin(&mut c, Ctx::Tecnico(_a)).await.unwrap();
+        let n: i64 = tx
+            .query_one(
+                "SELECT count(*) FROM registro_versoes WHERE versao_id = $1",
+                &[&vid],
+            )
+            .await
+            .unwrap()
+            .get(0);
+        assert_eq!(n, 0, "o técnico não lê o registro");
+        let apagou = tx
+            .execute("DELETE FROM registro_versoes WHERE versao_id = $1", &[&vid])
+            .await
+            .unwrap();
+        assert_eq!(apagou, 0, "o técnico não apaga o registro");
+        tx.commit().await.unwrap();
+    }
+
     // Uma por vez.
     let (st, _) = chamar(
         &s,
@@ -955,4 +990,154 @@ async fn versao_vai_da_fila_ao_executavel() {
     assert_eq!(st, StatusCode::OK);
     assert_eq!(v["versoes"].as_array().unwrap().len(), 3);
     assert_eq!(v["versoes"][0]["estado"], "erro");
+}
+
+// ---------- Retenção do Gerar sua versão (SDD-12) ----------
+
+/// Versão já pronta, gravada direto (sem passar pela fila, para não cruzar
+/// com o teste da fila rodando em paralelo).
+async fn versao_pronta(s: &AppState, tecnico: Uuid) -> Uuid {
+    let id = Uuid::new_v4();
+    let mut c = s.db.get().await.unwrap();
+    let tx = db::begin(&mut c, Ctx::Sistema).await.unwrap();
+    tx.execute(
+        "INSERT INTO versoes(id, tecnico_id, nome, receita, receita_sha256, base_commit,
+             estado, etapa, percentual, executavel_bytes, iniciado_em, terminado_em)
+         VALUES ($1, $2, 'Teste', '{}', 'h', 'e46a8b7', 'pronta', 'pronta', 100, 4, now(), now())",
+        &[&id, &tecnico],
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    tokio::fs::create_dir_all(&s.versoes.dir).await.unwrap();
+    tokio::fs::write(s.versoes.dir.join(format!("{id}.exe")), b"MZ..")
+        .await
+        .unwrap();
+    id
+}
+
+async fn sistema(s: &AppState, sql: &str, tecnico: Uuid) {
+    let mut c = s.db.get().await.unwrap();
+    let tx = db::begin(&mut c, Ctx::Sistema).await.unwrap();
+    tx.execute(sql, &[&tecnico]).await.unwrap();
+    tx.commit().await.unwrap();
+}
+
+async fn contar(s: &AppState, sql: &str, id: Uuid) -> i64 {
+    let mut c = s.db.get().await.unwrap();
+    let tx = db::begin(&mut c, Ctx::Sistema).await.unwrap();
+    let n: i64 = tx.query_one(sql, &[&id]).await.unwrap().get(0);
+    tx.commit().await.unwrap();
+    n
+}
+
+#[tokio::test]
+async fn retencao_avisa_no_23o_dia_e_apaga_no_30o() {
+    let s = ou_pula!(estado().await);
+    let (t, sessao) = criar_sessao_teste(&s, &format!("ret-{}", Uuid::new_v4()), "ret@teste").await;
+    let v = versao_pronta(&s, t).await;
+    let exe = s.versoes.dir.join(format!("{v}.exe"));
+    let existe = "SELECT count(*) FROM versoes WHERE id = $1";
+
+    // Ativo: nada acontece.
+    crate::retencao::rodar(&s).await.unwrap();
+    assert_eq!(contar(&s, existe, v).await, 1);
+
+    // 25 dias sem entrar: avisaria (sem SMTP, conta como não enviado) e não apaga.
+    sistema(
+        &s,
+        "UPDATE tecnicos SET ultimo_acesso = now() - interval '25 days' WHERE id = $1",
+        t,
+    )
+    .await;
+    let r = crate::retencao::rodar(&s).await.unwrap();
+    assert!(r.sem_envio >= 1, "{r:?}");
+    assert_eq!(contar(&s, existe, v).await, 1);
+    assert!(exe.exists());
+
+    // Entrar de novo (qualquer chamada logada) zera a contagem.
+    let (st, _) = chamar(&s, "GET", "/api/eu", Some(&sessao), None).await;
+    assert_eq!(st, StatusCode::OK);
+    let recente = "SELECT count(*) FROM tecnicos WHERE id = $1 AND ultimo_acesso > now() - interval '1 minute'";
+    assert_eq!(
+        contar(&s, recente, t).await,
+        1,
+        "o acesso atualiza ultimo_acesso"
+    );
+
+    // 31 dias sem entrar: a versão e o executável somem; o registro fica.
+    sistema(
+        &s,
+        "INSERT INTO registro_versoes(versao_id, tecnico_id, conta_email, receita_sha256,
+             base_versao, base_commit, termo) VALUES (gen_random_uuid(), $1, 'ret@teste', 'h',
+             '0.9.9', 'e46a8b7', 'x')",
+        t,
+    )
+    .await;
+    sistema(
+        &s,
+        "UPDATE tecnicos SET ultimo_acesso = now() - interval '31 days' WHERE id = $1",
+        t,
+    )
+    .await;
+    let r = crate::retencao::rodar(&s).await.unwrap();
+    assert!(r.versoes_apagadas >= 1, "{r:?}");
+    assert_eq!(contar(&s, existe, v).await, 0);
+    assert!(!exe.exists());
+    let registro = "SELECT count(*) FROM registro_versoes WHERE tecnico_id = $1";
+    assert_eq!(
+        contar(&s, registro, t).await,
+        1,
+        "o registro sobrevive à limpeza"
+    );
+
+    // Registro com mais de 12 meses expira. O papel da aplicação não altera
+    // registro nenhum (só insere e, como sistema, apaga): envelhece como dono do banco.
+    s.db.get()
+        .await
+        .unwrap()
+        .execute(
+            "UPDATE registro_versoes SET gerado_em = now() - interval '13 months' WHERE tecnico_id = $1",
+            &[&t],
+        )
+        .await
+        .unwrap();
+    let r = crate::retencao::rodar(&s).await.unwrap();
+    assert!(r.registros_expirados >= 1, "{r:?}");
+    assert_eq!(contar(&s, registro, t).await, 0);
+}
+
+#[tokio::test]
+async fn so_o_ultimo_executavel_fica_no_disco() {
+    let s = ou_pula!(estado().await);
+    let (t, _) = criar_sessao_teste(&s, &format!("ult-{}", Uuid::new_v4()), "ult@teste").await;
+    let antiga = versao_pronta(&s, t).await;
+    // Uma nova chega pelo compilador: precisa estar compilando.
+    let nova = Uuid::new_v4();
+    {
+        let mut c = s.db.get().await.unwrap();
+        let tx = db::begin(&mut c, Ctx::Sistema).await.unwrap();
+        tx.execute(
+            "INSERT INTO versoes(id, tecnico_id, nome, receita, receita_sha256, base_commit, estado, iniciado_em)
+             VALUES ($1, $2, 'Nova', '{}', 'h2', 'e46a8b7', 'compilando', now())",
+            &[&nova, &t],
+        )
+        .await
+        .unwrap();
+        tx.commit().await.unwrap();
+    }
+    let (st, v) = compilador(
+        &s,
+        "PUT",
+        &format!("/api/builder/{nova}/executavel"),
+        Some(TOKEN_COMPILADOR),
+        Body::from(b"MZ nova".to_vec()),
+        false,
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert!(s.versoes.dir.join(format!("{nova}.exe")).exists());
+    assert!(!s.versoes.dir.join(format!("{antiga}.exe")).exists());
+    let sem_exe = "SELECT count(*) FROM versoes WHERE id = $1 AND executavel_bytes IS NULL";
+    assert_eq!(contar(&s, sem_exe, antiga).await, 1);
 }

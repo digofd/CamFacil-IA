@@ -8,6 +8,7 @@ mod auth;
 mod db;
 mod estudio;
 mod hub;
+mod retencao;
 mod util;
 mod versoes;
 mod web;
@@ -38,6 +39,8 @@ pub struct Inner {
     pub base_url: String,
     /// "Gerar sua versão" (SDD-12): pasta dos executáveis, token do compilador, base.
     pub versoes: versoes::Config,
+    /// SMTP do aviso de retenção; `None` sem configuração.
+    pub correio: Option<retencao::Correio>,
 }
 
 impl std::ops::Deref for AppState {
@@ -249,7 +252,9 @@ async fn main() {
         limite: api::Limite::default(),
         base_url,
         versoes: versoes::Config::do_ambiente(),
+        correio: retencao::Correio::do_ambiente(),
     }));
+    retencao::iniciar(state.clone());
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", porta))
         .await
