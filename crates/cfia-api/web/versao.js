@@ -408,6 +408,7 @@
     barra.setAttribute("aria-valuenow", v.percentual);
     barra.classList.toggle("parada", v.estado === "fila");
     $("#pronta").hidden = v.estado !== "pronta";
+    $("#andamento").classList.toggle("e-pronta", v.estado === "pronta");
     $("#erro-bloco").hidden = v.estado !== "erro";
     $("#acoes-versao").hidden = !["pronta", "erro"].includes(v.estado);
     $("#t-gerar").textContent = v.nome;

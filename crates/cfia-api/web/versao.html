@@ -170,8 +170,17 @@
         <p class="tiny" id="estimativa"></p>
         <div class="ver-pronta" id="pronta" hidden>
           <div class="ver-baixar">
-            <a class="btn primary grande" id="baixar-exe" href="#" download>Baixar o programa (.exe)</a>
+            <a class="btn primary grande" id="baixar-exe" href="#" download>Baixar o programa</a>
             <a class="btn grande" id="baixar-receita" href="#" download>Baixar a receita</a>
+          </div>
+          <div class="ver-bloqueio" role="note">
+            <strong>Por ser um arquivo novo, o Windows pode bloquear ou apagar o programa na primeira tentativa de download.</strong>
+            <span>Se o arquivo sumiu, libere só ele e baixe de novo:</span>
+            <ol>
+              <li>Abra <b>Segurança do Windows</b> → <b>Proteção contra vírus e ameaças</b> → <b>Histórico de proteção</b>.</li>
+              <li>Abra o item do arquivo (aparece como "Wacatac.B!ml": é o alarme do Windows para programa novo) → <b>Ações</b> → <b>Permitir no dispositivo</b>.</li>
+              <li>Baixe de novo. Se aparecer a tela azul do SmartScreen: <b>Mais informações</b> → <b>Executar assim mesmo</b>.</li>
+            </ol>
           </div>
           <div class="ver-compartilhar">
             <span class="ver-contador" id="contador">Baixado 0 vezes</span>
@@ -185,7 +194,7 @@
             <summary>Antes de entregar ao cliente</summary>
           <ul class="ver-avisos">
             <li><strong>Guarde a receita</strong> (no seu Google Drive ou onde preferir). Com ela você gera a mesma versão de novo. O espaço aqui é apagado após 30 dias sem entrar.</li>
-            <li>Sem assinatura digital, o SmartScreen e alguns antivírus desconfiam de arquivo novo ("Mais informações" → "Executar assim mesmo"). Em Propriedades → Detalhes aparecem o seu nome e o hash da receita.</li>
+            <li>Em Propriedades → Detalhes, o arquivo mostra o seu nome, a base oficial e o hash da receita.</li>
             <li>No programa, a tela Início mostra que é uma versão modificada, o hash da receita e o botão para exportar a receita.</li>
           </ul>
           </details>

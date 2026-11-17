@@ -92,6 +92,15 @@
 .ver-avisos { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--text-2); font-size: var(--fs-sm); }
 .ver-avisos strong { color: var(--text); font-weight: 500; }
 .ver-erro .msg { margin: 0 0 var(--s2); }
+/* Aviso de bloqueio do Windows: bem à vista, logo abaixo do download. */
+.ver-bloqueio { display: flex; flex-direction: column; gap: 6px; max-width: 720px; padding: var(--s3) var(--s4); border: 2px solid var(--c-warn); border-radius: var(--r); background: var(--surface); font-size: var(--fs-sm); color: var(--text-2); }
+.ver-bloqueio strong { color: var(--c-warn); font-size: var(--fs-md); font-weight: 600; line-height: 1.35; }
+.ver-bloqueio ol { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+.ver-bloqueio b { color: var(--text); font-weight: 500; }
+@media (max-width: 760px) {
+  .ver-bloqueio { padding: var(--s2) var(--s3); font-size: var(--fs-xs); gap: 4px; }
+  .ver-bloqueio strong { font-size: var(--fs-sm); }
+}
 .ver-compartilhar { display: flex; flex-direction: column; gap: var(--s1); }
 .ver-contador { font-size: var(--fs-sm); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .ver-link { margin-top: 0; max-width: 640px; }
@@ -104,6 +113,13 @@
 .ver-perigo { color: var(--c-danger); }
 .ver-perigo:hover { color: var(--c-danger); border-color: var(--c-danger); }
 
+/* Pronta: barra e estimativa já não dizem nada; o espaço vai para o aviso. */
+.ver-andamento.e-pronta .ver-barra { display: none; }
+@media (max-width: 999px), (max-height: 860px) {
+  .ver-andamento.e-pronta { gap: var(--s2); }
+  .ver-andamento.e-pronta #estimativa, .ver-compartilhar .tiny { display: none; }
+  .ver-baixar .btn.grande { height: 38px; padding: 0 var(--s3); font-size: var(--fs-md); }
+}
 @media (max-width: 999px), (max-height: 620px) {
   .ver-entrada { grid-template-columns: minmax(0, 1fr); gap: var(--s3); }
   .ver-previa { min-height: 150px; grid-template-columns: 120px minmax(0, 1fr); }
@@ -118,6 +134,7 @@
   .ver-resumo-curto { display: block; }
   .ver-termo { padding: var(--s3); gap: var(--s2); }
   .ver-termo ul { font-size: var(--fs-xs); }
+  .ver-baixar { display: grid; grid-template-columns: 1.4fr 1fr; }
   .ver-baixar .btn { width: 100%; }
 }
 @media (max-height: 760px) {
