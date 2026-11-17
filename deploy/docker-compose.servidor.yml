@@ -15,6 +15,15 @@ services:
       PORT: "8080"
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Gerar sua versão (SDD-12). Sem CFIA_BASE_COMMIT, a função fica desligada.
+      CFIA_BASE_COMMIT: ${CFIA_BASE_COMMIT:-}
+      CFIA_BUILDER_TOKEN: ${CFIA_BUILDER_TOKEN:-}
+      CFIA_VERSOES_DIR: /dados/versoes
+      # Aviso de retenção por e-mail; sem estes, a limpeza roda e o aviso não sai.
+      CFIA_SMTP_URL: ${CFIA_SMTP_URL:-}
+      CFIA_EMAIL_DE: ${CFIA_EMAIL_DE:-}
+    volumes:
+      - cfia-versoes:/dados/versoes
     depends_on:
       cfia-db:
         condition: service_healthy
@@ -53,6 +62,7 @@ services:
 
 volumes:
   cfia-db-dados:
+  cfia-versoes:
 
 networks:
   interna:

@@ -38,6 +38,30 @@ O script clona em `/opt/camfacil`, gera a senha do banco em `/opt/camfacil/deplo
 - `https://cfia.ysafe.com.br/api/saude` responde `{"ok":true,...}`.
 - O login com Google leva de volta ao painel "Agentes".
 
+## Gerar sua versão (SDD-12)
+
+Duas peças: a fila no `cfia-api` (este servidor) e o compilador numa VPS separada ([ADR 0018](adr/0018-gerar-sua-versao-compilada-na-vps.md)).
+
+**No `cfia-api`** (Environment do Dokploy, ou `/opt/camfacil/deploy/.env` no modo terminal):
+```
+CFIA_BASE_COMMIT=<commit do main que os técnicos recebem como base>
+CFIA_BUILDER_TOKEN=<o mesmo token do compilador, 32+ caracteres>
+CFIA_SMTP_URL=smtps://usuario:senha@smtp.provedor.com:465   # opcional
+CFIA_EMAIL_DE=CamFácil IA <nao-responda@cfia.ysafe.com.br>   # opcional
+```
+Os executáveis ficam no volume `cfia-versoes` (`/dados/versoes`). Sem `CFIA_BASE_COMMIT`, a página `/versao` diz que a função não está ligada. A cada versão oficial nova, troque `CFIA_BASE_COMMIT` pelo commit dela.
+
+**No compilador** (VPS própria, com Docker):
+```sh
+git clone https://github.com/emersoncassis/CamFacil-IA.git && cd CamFacil-IA
+printf 'CFIA_API=https://cfia.ysafe.com.br
+CFIA_BUILDER_TOKEN=<o mesmo token>
+' > deploy/builder/.env
+chmod 600 deploy/builder/.env
+docker compose -f deploy/builder/docker-compose.yml up -d --build
+```
+O primeiro build baixa as dependências e leva uns 5 minutos; os seguintes, perto de 1 minuto e meio. Ele só sai para a internet: não abra porta nenhuma.
+
 ## Backup
 Ative o backup do volume `cfia-db-dados` no Dokploy (diário). O banco guarda só contas, dispositivos, agentes e auditoria.
 

@@ -11,12 +11,16 @@ COPY site-docs/assets ./site-docs/assets
 # Esquema da receita do modo estúdio (embutido pelo cf-core).
 COPY docs/esquemas ./docs/esquemas
 RUN cargo build --release --locked -p cfia-api
+# Pasta dos executáveis do "Gerar sua versão" (volume cfia-versoes), já do
+# usuário sem privilégio: o volume novo herda o dono na primeira montagem.
+RUN mkdir -p /dados/versoes
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 LABEL org.opencontainers.image.source=https://github.com/emersoncassis/CamFacil-IA \
       org.opencontainers.image.description="Painel web do CamFácil IA (pareamento dos agentes)" \
       org.opencontainers.image.licenses=AGPL-3.0-only
 COPY --from=build /src/target/release/cfia-api /usr/local/bin/cfia-api
+COPY --from=build --chown=65532:65532 /dados /dados
 ENV PORT=8080
 EXPOSE 8080
 USER nonroot

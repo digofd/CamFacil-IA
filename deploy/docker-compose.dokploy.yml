@@ -1,6 +1,8 @@
 # Deploy no Dokploy (tipo "Docker Compose"), apontando para este arquivo.
 # Variáveis em Environment do Dokploy:
 #   POSTGRES_PASSWORD, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+#   Gerar sua versão (SDD-12): CFIA_BASE_COMMIT, CFIA_BUILDER_TOKEN e, para o
+#   aviso por e-mail, CFIA_SMTP_URL e CFIA_EMAIL_DE
 # Domínio: em Domains, cfia.ysafe.com.br → serviço cfia-api, porta 8080, HTTPS ligado.
 services:
   cfia-api:
@@ -14,6 +16,15 @@ services:
       PORT: "8080"
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Gerar sua versão (SDD-12). Sem CFIA_BASE_COMMIT, a função fica desligada.
+      CFIA_BASE_COMMIT: ${CFIA_BASE_COMMIT:-}
+      CFIA_BUILDER_TOKEN: ${CFIA_BUILDER_TOKEN:-}
+      CFIA_VERSOES_DIR: /dados/versoes
+      # Aviso de retenção por e-mail; sem estes, a limpeza roda e o aviso não sai.
+      CFIA_SMTP_URL: ${CFIA_SMTP_URL:-}
+      CFIA_EMAIL_DE: ${CFIA_EMAIL_DE:-}
+    volumes:
+      - cfia-versoes:/dados/versoes
     depends_on:
       cfia-db:
         condition: service_healthy
@@ -42,6 +53,7 @@ services:
 
 volumes:
   cfia-db-dados:
+  cfia-versoes:
 
 networks:
   interna:
