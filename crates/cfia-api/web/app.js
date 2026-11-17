@@ -160,6 +160,16 @@ async function carregarMinhaVersao() {
   if (v.estado === "pronta" && v.link) {
     partes.push(el("p", { class: "hint mv-rotulo" }, "Link público para o cliente (baixa sem entrar no site):"), caixaComando(location.origin + v.link));
   }
+  if (v.estado === "pronta") {
+    const passo = (...p) => el("li", {}, ...p);
+    partes.push(el("div", { class: "mv-bloqueio", role: "note" },
+      el("strong", {}, "Por ser um arquivo novo, o Windows pode bloquear ou apagar o programa na primeira tentativa de download."),
+      el("span", {}, "Se o arquivo sumiu, libere só ele e baixe de novo:"),
+      el("ol", {},
+        passo(el("b", {}, "Segurança do Windows"), " → ", el("b", {}, "Proteção contra vírus e ameaças"), " → ", el("b", {}, "Histórico de proteção"), "."),
+        passo("Abra o item do arquivo (\"Wacatac.B!ml\": alarme do Windows para programa novo) → ", el("b", {}, "Ações"), " → ", el("b", {}, "Permitir no dispositivo"), "."),
+        passo("Baixe de novo. No SmartScreen: ", el("b", {}, "Mais informações"), " → ", el("b", {}, "Executar assim mesmo"), "."))));
+  }
   if (v.estado === "erro" && v.erro) partes.push(el("p", { class: "msg err" }, v.erro));
   partes.push(acoes, aviso);
   caixa.replaceChildren(el("div", { class: "mv-cartao" }, ...partes));
