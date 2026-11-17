@@ -167,6 +167,15 @@ Ligar: criar `deploy/builder/.env` com `CFIA_API` e `CFIA_BUILDER_TOKEN` e rodar
 - Pico do contêiner: ~470 MB parado depois do build. A imagem tem 4 GB (Rust, mingw-w64), e o disco da KVM1 foi de 7,4 GB para 25 GB usados nos testes.
 - O primeiro pedido falhou com "não foi possível baixar o código oficial": o repositório de teste (local, de outro dono) caiu na proteção "dubious ownership" do git. Em produção o compilador clona do GitHub.
 
+### A versão gerada fica disponível (2026-11-17)
+
+- **A versão pronta fica:** `/versao` abre direto nela, com download do programa e da receita, o **contador de downloads** e o **link público** (`/v/{código}`, 24 caracteres aleatórios, baixa sem login, até 30 por hora por IP, fora do `robots.txt`). Os avisos de entrega viram uma seção que abre.
+- **Painel do site:** aba **Minha versão**, com nome, situação, data, downloads, hash, link para copiar, downloads e **Limpar versão**.
+- **Limpar versão** (`DELETE /api/versoes`): apaga versões, executáveis e links (o link passa a responder 404). O registro de geração fica. Recusa enquanto uma versão está na fila ou compilando.
+- **Limite de 3 por dia** conta pelo registro de geração, para limpar não devolver o limite.
+- **Janela do programa:** na versão gerada, "Vigia Silva · Silva Segurança · versão modificada do CamFácil IA 0.9.9", e o título da janela "Vigia Silva (CamFácil IA)".
+- Migração `0007_versao_publica.sql` (`downloads`, `link`).
+
 ### Conferido na Etapa 3 (2026-11-17)
 
 No painel do navegador, pelo túnel SSH até um `cfia-api` de teste na KVM1 com o compilador ligado, com uma sessão de teste no lugar do login com Google:
