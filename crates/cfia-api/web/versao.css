@@ -112,3 +112,7 @@
 @media (max-height: 760px) {
   .ver-foco { display: none; }
 }
+@media (max-height: 700px) {
+  .ver-termo { gap: var(--s1); }
+  .ver-termo ul { gap: 2px; }
+}

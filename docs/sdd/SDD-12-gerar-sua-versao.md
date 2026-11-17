@@ -104,7 +104,7 @@ Regra: a receita mexe **só no crate `camfacil`**. Medido na KVM1: trocar de rec
 - **Detector:** antes ele descartava tudo que não fosse as 6 classes. Agora `cf_core::deteccao::decodificar_classes` observa a lista da versão; `nome_classe` e `plural` cobrem as 80.
 - **Regras:** `cf_core::inteligencias::validar_com` aceita as classes da versão. Criar regra com inteligência fora da versão dá erro 400. `GET /api/inteligencias` só lista o que a versão tem.
 - **Tokens:** `--c-green-rgb` entrou no `tokens.css`, e as transparências do verde (`app.css` e o mapa de calor do `app.js`) passaram a usar ele. A opção de linha "verde" (`--linha-verde`) ficou fixa em verde, para não virar azul numa versão azul.
-- **Tela:** nome da versão no título e no menu lateral, logo no lugar do ícone, e no Início (Máquina) as linhas "Versão modificada", "Versão base", "Receita" (hash e **Exportar receita**) e "Código-fonte". O programa oficial também passa a mostrar o link do código-fonte.
+- **Tela:** nome da versão no título e no menu lateral, logo no lugar do ícone. No Início (Máquina), a linha "Versão" ganha o link do código-fonte (também no oficial, sem linha nova) e a versão gerada ganha só duas linhas: "Versão modificada" (autor, data e base) e "Receita" (hash e **Exportar receita**). Com quatro linhas, o bloco passava 36 px em 360×640.
 - **API:** `GET /api/versao` (informações do "Sobre") e `GET /api/versao/receita.json` (exporta a receita; 404 no oficial).
 - **Sem receita, o binário sai igual ao oficial.** O teste `versao::sem_receita_e_igual_ao_oficial` confere inteligências, classes, `tokens.css`, `icon.svg` e a ausência de logo e receita.
 - Impacto no binário: a tabela das 80 classes e a receita somam poucos KB; o logo vai até 512 KB. Executável Windows medido: 6,5 MB.
@@ -175,7 +175,7 @@ No painel do navegador, pelo túnel SSH até um `cfia-api` de teste na KVM1 com 
 - Revisão conferida pelo servidor; o botão Gerar só ligou depois do aceite.
 - Fila → compilando → montando → pronta. Recarregar a página no meio do build voltou para o andamento.
 - O `.exe` baixado pelo link da tela abriu no Windows com o nome, o logo, o laranja, as 3 inteligências, as 7 detecções e o autor da conta ("Emerson Teste").
-- Zero rolagem em 1024×768 e em 375×812 nos seis passos. Duas correções saíram daí: o grupo "Outros" passava da altura (agora pagina) e a Revisão passava 220 px no celular (agora o resumo vira uma linha).
+- Zero rolagem nos seis passos em 360×640, 390×844, 768×1024, 1366×768 e 1920×1080 (e em 375×812), conferida pelo DOM; a Revisão passava 2 px em 360×640 e o termo ficou mais compacto em telas baixas. A ferramenta nova na página inicial também cabe. Duas correções saíram daí: o grupo "Outros" passava da altura (agora pagina) e a Revisão passava 220 px no celular (agora o resumo vira uma linha).
 
 ### Medição na KVM1 (2026-11-17)
 

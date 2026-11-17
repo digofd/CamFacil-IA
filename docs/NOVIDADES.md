@@ -2,6 +2,13 @@
 
 Histórico de cada versão do CamFácil IA. A versão atual e os arquivos para baixar estão nas [releases](https://github.com/emersoncassis/CamFacil-IA/releases). Voltar ao [README](../README.md).
 
+## Na próxima versão
+
+- **Gerar sua versão** ([SDD-12](sdd/SDD-12-gerar-sua-versao.md), [ADR 0018](adr/0018-gerar-sua-versao-compilada-na-vps.md)): no site, o técnico logado com o Google monta a própria versão sem programar (nome, empresa, logo, cor de destaque, inteligências e detecções) e o servidor compila o executável do Windows. Ele baixa o programa e a **receita**, que gera a mesma versão de novo. O espaço é gratuito: versões apagadas após 30 dias sem entrar, com aviso por e-mail no 23º dia. Fica registrado quem gerou cada versão (hash da receita) por 12 meses.
+- **As 80 detecções do modelo:** o detector passa a aceitar qualquer classe do COCO que a versão escolher (cachorro, gato, cavalo, mochila…). O programa oficial continua com as seis de sempre.
+- **Sobre a versão:** a tela Início (Máquina) mostra o link do código-fonte e, numa versão gerada, o aviso de versão modificada, o hash da receita e o botão **Exportar receita**.
+- **Tela travada em "Conectando":** corrigida a corrida em que o painel chamava a tela antes de ela carregar.
+
 ## Novidades da 0.9.9
 
 - **CamFácil IA Builder:** skill para assistentes de código que ajuda quem não programa a montar a própria versão (telas, funções, inteligências, integrações). Usa o [Reversa](https://github.com/sandeco/reversa) como método e recusa, com o motivo e uma alternativa, o pedido que fere a LGPD, a licença AGPL-3.0 ou a segurança. Skill em `.claude/skills/camfacil-ia-builder/`, entrada para outros assistentes em `AGENTS.md` e [página no site](https://emersoncassis.github.io/CamFacil-IA/builder/) em português, inglês e espanhol.

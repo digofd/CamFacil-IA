@@ -86,20 +86,23 @@ async function carregarVersao() {
 }
 
 function linhasVersao(v) {
+  // Tela pequena: no máximo duas linhas a mais, e só numa versão gerada.
   const link = (href, texto, extra = {}) => el("a", { href, ...extra }, texto);
-  const codigo = [el("dt", {}, t("sys.codigo")), el("dd", {}, link(v.codigo, t("sys.codigo_link"), { target: "_blank", rel: "noopener" }))];
-  if (!v.personalizada) return codigo;
+  const codigo = link(v.codigo, t("sys.codigo_link"), { target: "_blank", rel: "noopener" });
+  if (!v.personalizada) return { versao: [` · `, codigo], linhas: [] };
   let data = v.gerado_em;
   try { data = new Date(v.gerado_em).toLocaleDateString("pt-BR"); } catch (_) { /* fica o texto */ }
-  const aviso = t("sys.modificada_txt").replace("{autor}", v.autor).replace("{data}", data);
-  return [
-    el("dt", {}, t("sys.modificada")), el("dd", {}, aviso),
-    el("dt", {}, t("sys.versao_base")), el("dd", {}, `CamFácil IA ${v.base_versao} · ${v.base_commit}`),
-    el("dt", {}, t("sys.receita")), el("dd", { class: "versao-receita" },
-      el("code", { title: v.hash }, v.hash.slice(0, 12)), " · ",
-      link("/api/versao/receita.json", t("sys.receita_baixar"), { download: "receita-da-versao.json" })),
-    ...codigo,
-  ];
+  const aviso = t("sys.modificada_txt").replace("{autor}", v.autor).replace("{data}", data)
+    + " " + t("sys.versao_base_txt").replace("{versao}", v.base_versao).replace("{commit}", v.base_commit);
+  return {
+    versao: [` · `, codigo],
+    linhas: [
+      el("dt", {}, t("sys.modificada")), el("dd", {}, aviso),
+      el("dt", {}, t("sys.receita")), el("dd", { class: "versao-receita" },
+        el("code", { title: v.hash }, v.hash.slice(0, 12)), " · ",
+        link("/api/versao/receita.json", t("sys.receita_baixar"), { download: "receita-da-versao.json" })),
+    ],
+  };
 }
 
 async function loadSystem() {
@@ -116,8 +119,9 @@ async function loadSystem() {
       ["sys.versao", s.version],
     ];
     const v = await carregarVersao();
-    const linhas = rows.flatMap(([k, val]) => [el("dt", {}, t(k)), el("dd", {}, String(val))]);
-    if (v) linhas.push(...linhasVersao(v));
+    const extra = v ? linhasVersao(v) : { versao: [], linhas: [] };
+    const linhas = rows.flatMap(([k, val]) => [el("dt", {}, t(k)), el("dd", {}, String(val), ...(k === "sys.versao" ? extra.versao : []))]);
+    linhas.push(...extra.linhas);
     $("#sysinfo").replaceChildren(...linhas);
     $("#live-dot").className = "dot on";
     $("#live-text").textContent = t("status.online");
