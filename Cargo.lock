@@ -204,6 +204,7 @@ dependencies = [
  "axum",
  "cf-core",
  "cf-notify",
+ "cf-versao",
  "futures-util",
  "miniz_oxide",
  "ort",
@@ -238,6 +239,7 @@ name = "cf-core"
 version = "0.9.9"
 dependencies = [
  "base64 0.23.1",
+ "cf-versao",
  "ed25519-dalek 3.0.0",
  "getrandom 0.4.3",
  "md-5",
@@ -262,6 +264,15 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "cf-versao"
+version = "0.9.9"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
 ]
 
 [[package]]

@@ -20,7 +20,10 @@
 
   /* Detalhe verde */
   --c-green: #06cb3f;
-  --c-green-dim: rgba(6, 203, 63, 0.14);
+  /* Mesmo verde em canais, para transparências: rgba(var(--c-green-rgb), .12).
+   * Uma versão gerada (SDD-12) troca --c-green e --c-green-rgb pela cor dela. */
+  --c-green-rgb: 6, 203, 63;
+  --c-green-dim: rgba(var(--c-green-rgb), 0.14);
 
   /* Estados (só onde carregam significado) */
   --c-warn: #e0b341;
@@ -28,7 +31,7 @@
   --c-alert: #ff9c9c;       /* balão de inteligência em alerta */
 
   /* Cores que o técnico escolhe para a linha/zona no overlay (SDD-09) */
-  --linha-verde: var(--c-green);
+  --linha-verde: #06cb3f;   /* a opção "verde" continua verde numa versão de outra cor */
   --linha-ambar: var(--c-warn);
   --linha-vermelho: var(--c-danger);
   --linha-azul: #5aa9ff;

@@ -32,6 +32,7 @@ mod resumo;
 mod tailscale;
 mod termos;
 mod tv;
+mod versao;
 mod video;
 mod visor;
 

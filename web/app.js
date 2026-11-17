@@ -70,6 +70,38 @@ function showTab(id) {
 // ---------- Visão geral ----------
 let level = null;
 
+// "Gerar sua versão" (SDD-12): nome, logo e o aviso de versão modificada.
+let versao = null;
+async function carregarVersao() {
+  if (versao) return versao;
+  try { versao = await api("/api/versao"); } catch (_) { return null; }
+  if (versao.personalizada) {
+    document.title = versao.nome;
+    const marca = document.querySelector(".brand span");
+    if (marca) marca.textContent = versao.nome;
+    const img = document.querySelector(".brand img");
+    if (img && versao.logo) { img.src = "/marca"; img.classList.add("brand-logo"); }
+  }
+  return versao;
+}
+
+function linhasVersao(v) {
+  const link = (href, texto, extra = {}) => el("a", { href, ...extra }, texto);
+  const codigo = [el("dt", {}, t("sys.codigo")), el("dd", {}, link(v.codigo, t("sys.codigo_link"), { target: "_blank", rel: "noopener" }))];
+  if (!v.personalizada) return codigo;
+  let data = v.gerado_em;
+  try { data = new Date(v.gerado_em).toLocaleDateString("pt-BR"); } catch (_) { /* fica o texto */ }
+  const aviso = t("sys.modificada_txt").replace("{autor}", v.autor).replace("{data}", data);
+  return [
+    el("dt", {}, t("sys.modificada")), el("dd", {}, aviso),
+    el("dt", {}, t("sys.versao_base")), el("dd", {}, `CamFácil IA ${v.base_versao} · ${v.base_commit}`),
+    el("dt", {}, t("sys.receita")), el("dd", { class: "versao-receita" },
+      el("code", { title: v.hash }, v.hash.slice(0, 12)), " · ",
+      link("/api/versao/receita.json", t("sys.receita_baixar"), { download: "receita-da-versao.json" })),
+    ...codigo,
+  ];
+}
+
 async function loadSystem() {
   try {
     const { sistema: s, nivel } = await api("/api/system");
@@ -83,7 +115,10 @@ async function loadSystem() {
       ["sys.self", s.self_ram_mb != null ? s.self_ram_mb + " MB" : "—"],
       ["sys.versao", s.version],
     ];
-    $("#sysinfo").replaceChildren(...rows.flatMap(([k, v]) => [el("dt", {}, t(k)), el("dd", {}, String(v))]));
+    const v = await carregarVersao();
+    const linhas = rows.flatMap(([k, val]) => [el("dt", {}, t(k)), el("dd", {}, String(val))]);
+    if (v) linhas.push(...linhasVersao(v));
+    $("#sysinfo").replaceChildren(...linhas);
     $("#live-dot").className = "dot on";
     $("#live-text").textContent = t("status.online");
     $("#rail-meta").textContent = `CPU ${s.cpu_usage.toFixed(0)}% · ${s.self_ram_mb ?? "—"} MB · v${s.version}`;
@@ -603,7 +638,7 @@ function calorDesenhar(c) {
     const v = c.celulas[y * c.colunas + x];
     if (!v) continue;
     const a = Math.min(0.75, 0.12 + 0.63 * (v / c.maximo));
-    svg.append(svgEl("rect", { class: "calor", x: x * cw, y: y * ch, width: cw, height: ch, fill: `rgba(6, 203, 63, ${a.toFixed(2)})` }));
+    svg.append(svgEl("rect", { class: "calor", x: x * cw, y: y * ch, width: cw, height: ch, style: `fill: rgba(var(--c-green-rgb), ${a.toFixed(2)})` }));
   }
 }
 
@@ -1647,7 +1682,8 @@ async function main() {
   T = await fetch("/i18n/pt-BR.json").then((r) => r.json());
   document.querySelectorAll("[data-i18n]").forEach((e) => { e.textContent = t(e.dataset.i18n); });
   document.querySelectorAll("[data-i18n-ph]").forEach((e) => { e.placeholder = t(e.dataset.i18nPh); });
-  iniciarTela();
+  // tela.js vem depois do app.js: a tradução pode chegar antes de ele carregar.
+  if (typeof iniciarTela === "function") iniciarTela(); else addEventListener("DOMContentLoaded", () => iniciarTela());
 
   document.querySelectorAll("[role=tab][data-tab]").forEach((b) => { b.onclick = () => showTab(b.dataset.tab); });
   $("#bench-run").onclick = runBench;

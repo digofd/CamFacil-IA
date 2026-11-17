@@ -51,6 +51,8 @@ pub fn router(app: Shared) -> Router {
         .route("/api/cameras/{id}/regras", get(get_regras).post(post_regra))
         .route("/api/regras/{id}", patch(patch_regra).delete(delete_regra))
         .route("/api/inteligencias", get(get_inteligencias))
+        .route("/api/versao", get(get_versao))
+        .route("/api/versao/receita.json", get(get_versao_receita))
         .route("/api/estado", get(get_estado))
         .route("/api/eventos", get(get_eventos))
         .route("/api/saude", get(get_saude))
@@ -1536,6 +1538,7 @@ async fn get_inteligencias(State(app): State<Shared>) -> ApiResult {
     let m = crate::video::modulos(&app.store);
     let itens: Vec<Value> = cf_core::inteligencias::INTELIGENCIAS
         .iter()
+        .filter(|i| crate::versao::intel_permitida(i.id))
         .map(|i| {
             json!({
                 "id": i.id,
@@ -1549,9 +1552,11 @@ async fn get_inteligencias(State(app): State<Shared>) -> ApiResult {
             })
         })
         .collect();
-    let classes: Vec<Value> = cf_core::inteligencias::CLASSES_ESCOLHA
+    // As classes desta versão (SDD-12); no programa oficial, as seis de sempre.
+    let classes: Vec<Value> = crate::versao::CLASSES
         .iter()
-        .map(|(i, n)| json!({ "indice": i, "id": n }))
+        .filter_map(|&i| cf_versao::coco::achar(i))
+        .map(|c| json!({ "indice": c.indice, "id": c.id, "nome": c.nome }))
         .collect();
     Ok(Json(json!({
         "inteligencias": itens,
@@ -1560,6 +1565,35 @@ async fn get_inteligencias(State(app): State<Shared>) -> ApiResult {
         "cores": cf_core::inteligencias::CORES,
         "estudo": app.ia.estudo.lock().unwrap().as_ref().map(|e| e.nome.clone()),
     })))
+}
+
+/// "Sobre" da versão (SDD-12): oficial ou gerada, por quem, com que hash e
+/// onde está o código.
+async fn get_versao() -> ApiResult {
+    Ok(Json(crate::versao::info()))
+}
+
+/// Exporta a receita embutida no executável: com a versão base, refaz esta
+/// mesma versão (e é a fonte correspondente exigida pela AGPL-3.0).
+async fn get_versao_receita() -> Response {
+    if !crate::versao::PERSONALIZADA {
+        return (
+            StatusCode::NOT_FOUND,
+            "esta é a versão oficial: não tem receita",
+        )
+            .into_response();
+    }
+    (
+        [
+            (header::CONTENT_TYPE, "application/json; charset=utf-8"),
+            (
+                header::CONTENT_DISPOSITION,
+                "attachment; filename=\"receita-da-versao.json\"",
+            ),
+        ],
+        crate::versao::RECEITA_JSON,
+    )
+        .into_response()
 }
 
 async fn get_regras(State(app): State<Shared>, Path(id): Path<i64>) -> ApiResult {
@@ -1651,6 +1685,12 @@ pub(crate) fn criar_regra(
     };
     let mut intel = cf_core::visao::Intel::de_texto(&r.intel)
         .ok_or_else(|| erro(StatusCode::BAD_REQUEST, "inteligência desconhecida"))?;
+    if intel != cf_core::visao::Intel::Legado && !crate::versao::intel_permitida(&r.intel) {
+        return Err(erro(
+            StatusCode::BAD_REQUEST,
+            "essa inteligência não faz parte desta versão",
+        ));
+    }
     let mut classes = r.classes.clone();
     let mut parametro = r.parametro;
     // Sugestão aceita sem a IA média ligada e pronta: usa a cerca leve, que
@@ -1661,8 +1701,15 @@ pub(crate) fn criar_regra(
         parametro = 0;
     }
     let estudo = app.ia.estudo.lock().unwrap().is_some();
-    if let Some(m) = cf_core::inteligencias::validar(
-        &forma_v, intel, &classes, parametro, &r.cor, &r.som, estudo,
+    if let Some(m) = cf_core::inteligencias::validar_com(
+        &forma_v,
+        intel,
+        &classes,
+        parametro,
+        &r.cor,
+        &r.som,
+        estudo,
+        crate::versao::CLASSES,
     ) {
         return Err((StatusCode::BAD_REQUEST, m));
     }
@@ -1892,7 +1939,7 @@ async fn patch_regra(
             cf_core::visao::Forma::Zona
         };
         let estudo = app.ia.estudo.lock().unwrap().is_some();
-        if let Some(m) = cf_core::inteligencias::validar(
+        if let Some(m) = cf_core::inteligencias::validar_com(
             &forma,
             a.intel,
             &a.classes,
@@ -1900,6 +1947,7 @@ async fn patch_regra(
             &a.cor,
             &a.som,
             estudo,
+            crate::versao::CLASSES,
         ) {
             return Err(bad(StatusCode::BAD_REQUEST, &m));
         }
