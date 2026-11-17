@@ -34,6 +34,7 @@ async fn estado() -> Option<AppState> {
             dir: std::env::temp_dir().join(format!("cfia-versoes-{}", Uuid::new_v4())),
             token: Some(TOKEN_COMPILADOR.into()),
             base_commit: Some("e46a8b7".into()),
+            sem_limite: vec!["sem-limite@teste".into()],
         },
         correio: None,
     })))
@@ -1189,4 +1190,41 @@ async fn so_o_ultimo_executavel_fica_no_disco() {
     assert!(!s.versoes.dir.join(format!("{antiga}.exe")).exists());
     let sem_exe = "SELECT count(*) FROM versoes WHERE id = $1 AND executavel_bytes IS NULL";
     assert_eq!(contar(&s, sem_exe, antiga).await, 1);
+}
+
+#[tokio::test]
+async fn conta_sem_limite_passa_das_tres_por_dia() {
+    let s = ou_pula!(estado().await);
+    let (t, sessao) =
+        criar_sessao_teste(&s, &format!("sl-{}", Uuid::new_v4()), "Sem-Limite@teste").await;
+    // Quatro registros de geração hoje: uma conta comum já estaria barrada.
+    for _ in 0..4 {
+        let mut c = s.db.get().await.unwrap();
+        let tx = db::begin(&mut c, Ctx::Sistema).await.unwrap();
+        tx.execute(
+            "INSERT INTO registro_versoes(versao_id, tecnico_id, conta_email, receita_sha256,
+                 base_versao, base_commit, termo) VALUES (gen_random_uuid(), $1, 'sem-limite@teste', 'h',
+                 '0.9.9', 'e46a8b7', 'x')",
+            &[&t],
+        )
+        .await
+        .unwrap();
+        tx.commit().await.unwrap();
+    }
+    let (st, v) = chamar(
+        &s,
+        "POST",
+        "/api/versoes",
+        Some(&sessao),
+        Some(pedido_versao("Vigia Dono")),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    // Não deixa a versão na fila para o teste da fila (que roda em paralelo).
+    let mut c = s.db.get().await.unwrap();
+    let tx = db::begin(&mut c, Ctx::Sistema).await.unwrap();
+    tx.execute("DELETE FROM versoes WHERE tecnico_id = $1", &[&t])
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
 }

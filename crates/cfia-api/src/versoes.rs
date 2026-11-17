@@ -51,6 +51,9 @@ pub struct Config {
     pub token: Option<String>,
     /// Commit da versão oficial usada como base (`CFIA_BASE_COMMIT`).
     pub base_commit: Option<String>,
+    /// E-mails sem o limite diário (`CFIA_SEM_LIMITE`, separados por vírgula;
+    /// ex.: o mantenedor). Fica no ambiente, não no código, que é público.
+    pub sem_limite: Vec<String>,
 }
 
 impl Config {
@@ -76,9 +79,27 @@ impl Config {
                 .into(),
             token,
             base_commit,
+            sem_limite: env("CFIA_SEM_LIMITE")
+                .map(|v| lista_emails(&v))
+                .unwrap_or_default(),
         }
     }
 
+    /// A conta pode gerar quantas versões quiser por dia?
+    pub fn sem_limite(&self, email: &str) -> bool {
+        let email = email.trim().to_lowercase();
+        self.sem_limite.contains(&email)
+    }
+}
+
+fn lista_emails(v: &str) -> Vec<String> {
+    v.split([',', ';', ' '])
+        .map(|e| e.trim().to_lowercase())
+        .filter(|e| e.contains('@'))
+        .collect()
+}
+
+impl Config {
     fn arquivo(&self, id: Uuid) -> PathBuf {
         self.dir.join(format!("{id}.exe"))
     }
@@ -212,7 +233,7 @@ pub async fn pedir(
     let tx = db::begin(&mut c, Ctx::Tecnico(t.id))
         .await
         .map_err(interno)?;
-    if hoje >= MAX_POR_DIA {
+    if hoje >= MAX_POR_DIA && !s.versoes.sem_limite(&t.email) {
         return Err(erro(
             StatusCode::TOO_MANY_REQUESTS,
             "você já gerou 3 versões nas últimas 24 horas; tente amanhã",
@@ -790,6 +811,18 @@ pub async fn falhou(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lista_sem_limite() {
+        let c = Config {
+            sem_limite: lista_emails(" Dono@Exemplo.com, outro@x.com;semarroba "),
+            ..Default::default()
+        };
+        assert_eq!(c.sem_limite, ["dono@exemplo.com", "outro@x.com"]);
+        assert!(c.sem_limite("DONO@exemplo.com "));
+        assert!(!c.sem_limite("dono@exemplo.co"));
+        assert!(!Config::default().sem_limite("dono@exemplo.com"));
+    }
 
     #[test]
     fn nome_de_arquivo() {
