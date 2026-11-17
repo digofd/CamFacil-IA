@@ -1,0 +1,22 @@
+# CamFácil IA · compilador do "Gerar sua versão" (SDD-12), na VPS própria.
+# Uso: crie deploy/builder/.env com CFIA_API e CFIA_BUILDER_TOKEN e rode
+#   docker compose -f deploy/builder/docker-compose.yml up -d --build
+services:
+  cfia-builder:
+    build: .
+    container_name: cfia-builder
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      CFIA_REF: ${CFIA_REF:-main}
+    volumes:
+      - cfia-builder-cache:/cache
+    # Um build por vez; sobra memória para o resto da máquina.
+    mem_limit: 3g
+    memswap_limit: 6g
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  cfia-builder-cache:

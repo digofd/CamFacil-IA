@@ -1,6 +1,6 @@
 # SDD-12 — Gerar sua versão
 
-Status: **em produção** · Etapa 1 (receita e build local) feita na branch `feat/gerar-sua-versao` · complementa o CamFácil IA Builder (`.claude/skills/camfacil-ia-builder/`), o [SDD-08](SDD-08-contas-e-isolamento.md) (contas, isolamento e auditoria), o [SDD-07](SDD-07-modo-estudio.md) (receitas e assistente do estúdio) e o [SDD-09](SDD-09-inteligencias-por-regra.md) (inteligências por regra) · criado em 2026-11-16
+Status: **em produção** · Etapas 1 (receita e build local) e 2 (fila e compilador) feitas na branch `feat/gerar-sua-versao` · complementa o CamFácil IA Builder (`.claude/skills/camfacil-ia-builder/`), o [SDD-08](SDD-08-contas-e-isolamento.md) (contas, isolamento e auditoria), o [SDD-07](SDD-07-modo-estudio.md) (receitas e assistente do estúdio) e o [SDD-09](SDD-09-inteligencias-por-regra.md) (inteligências por regra) · criado em 2026-11-16
 
 ## Objetivo
 
@@ -120,10 +120,51 @@ Regra: a receita mexe **só no crate `camfacil`**. Medido na KVM1: trocar de rec
 Contêiner **`cfia-builder`** numa **VPS própria** (KVM1: 4 GB de RAM, 1 vCPU), separada da VPS do site. Compilar não disputa CPU nem memória com o `cfia-api`.
 
 - **Ele busca o trabalho.** O `cfia-builder` pergunta ao `cfia-api` por HTTPS, com um token só dele, se há receita na fila. Recebe a receita, manda o progresso e envia o executável pronto. A VPS do builder não abre porta nenhuma para a internet.
-- **Isolado.** Sem acesso ao banco nem aos segredos do site; o token dele só serve para a fila. Compila com `cargo build --offline` a partir de dependências vendorizadas, sem rede durante a compilação.
-- **Limites.** **Um build por vez**, tempo máximo de 30 minutos. Compila só o pacote `camfacil` (`-p camfacil`), nunca o workspace inteiro. Swap de 4 GB como folga para a etapa final.
-- **Cache.** Volume persistente com a pasta `target/`, aquecido a cada versão oficial nova.
+- **Isolado.** Sem acesso ao banco nem aos segredos do site; o token dele só serve para a fila. Baixa as dependências com `cargo fetch --locked` e compila com `cargo build --offline --locked`: a compilação em si não usa a rede.
+- **Limites.** **Um build por vez**. Build parado há mais de 40 minutos vira erro na próxima consulta do compilador. Compila só o pacote `camfacil` (`-p camfacil`), nunca o workspace inteiro. Swap de 4 GB como folga para a etapa final.
+- **Cache.** Volume `cfia-builder-cache` com o código, as dependências e a pasta `target/`.
 - **Windows a partir do Linux.** Compilação cruzada com o **mingw-w64** (alvo `x86_64-pc-windows-gnu`), que é software livre. O `cargo-xwin` (alvo MSVC, o do build oficial) foi descartado: ele baixa o CRT e o SDK do Windows, que exigem aceitar a licença da Microsoft. O build oficial do GitHub continua em MSVC; só as versões geradas saem em GNU.
+
+### Como está feito (Etapa 2)
+
+**No `cfia-api`** (`crates/cfia-api/src/versoes.rs`, migração `0005_versoes.sql`):
+
+| Rota | Quem | O que faz |
+|---|---|---|
+| `POST /api/versoes` `{receita}` | técnico | Carimba versão base (`CFIA_BASE_COMMIT`), autor (nome da conta) e data, assina, valida com o `cf-versao` e põe na fila. 409 se já tem uma na fila; 429 na 4ª em 24 h; 503 sem `CFIA_BASE_COMMIT`. |
+| `GET /api/versoes` | técnico | As últimas 20 dele. |
+| `GET /api/versoes/{id}` | técnico | Estado, etapa, porcentagem, posição na fila e tempo médio dos últimos 10 builds. |
+| `GET /api/versoes/{id}/receita.json` | técnico | A receita assinada. |
+| `GET /api/versoes/{id}/executavel` | técnico | O `.exe`, com o nome da versão (`vigia-silva.exe`). |
+| `POST /api/builder/pegar` | compilador | O mais antigo da fila (`FOR UPDATE SKIP LOCKED`), ou 204. |
+| `POST /api/builder/{id}/progresso` | compilador | `{etapa: preparando, compilando ou montando, percentual}`; a porcentagem só sobe. |
+| `PUT /api/builder/{id}/executavel` | compilador | O `.exe` (até 40 MB, começa com `MZ`), gravado em `CFIA_VERSOES_DIR`. |
+| `POST /api/builder/{id}/erro` | compilador | `{mensagem}` (até 300 caracteres). |
+
+- Tabela `versoes` com RLS: o técnico lê e pede só as dele; só o sistema escreve o andamento. Índice único garante uma por vez na fila.
+- O compilador entra com `Authorization: Bearer <CFIA_BUILDER_TOKEN>` (32+ caracteres, comparação de tempo constante). As rotas `/api/builder/` não passam pela checagem de `Origin`, porque não usam cookie.
+- O executável fica no disco, não no banco. O volume de `CFIA_VERSOES_DIR` precisa ser gravável pelo contêiner da API.
+
+**Na KVM1** (`deploy/builder/`): imagem `rust:1-bookworm` com mingw-w64 e jq, usuário sem privilégio, `trabalhador.sh` em laço. Para cada pedido, ele:
+1. confere que o commit da base saiu do ramo oficial (`CFIA_REF`, padrão `main`) com `git merge-base --is-ancestor`, e recusa qualquer outro;
+2. compila com a receita, contando as unidades do cargo (`--message-format=json`) para a porcentagem; quando falta só o programa, a etapa vira "montando" (98%);
+3. envia o `.exe`, ou a primeira linha de erro do compilador.
+
+Ligar: criar `deploy/builder/.env` com `CFIA_API` e `CFIA_BUILDER_TOKEN` e rodar `docker compose -f deploy/builder/docker-compose.yml up -d --build`. No `cfia-api`: `CFIA_BUILDER_TOKEN`, `CFIA_BASE_COMMIT` e `CFIA_VERSOES_DIR`.
+
+### Conferido na Etapa 2 (2026-11-17)
+
+- Testes de integração da fila contra Postgres 16 na KVM1: pedido, marca de fabricante recusada, uma por vez, isolamento entre técnicos, token errado, progresso, executável inválido recusado, download só do dono, limite de 3 por dia.
+- **De ponta a ponta na KVM1:** `cfia-api` de teste, compilador no contêiner e um técnico de teste pedindo pela API.
+
+| Build | Do pedido ao pronto | Etapas vistas pelo técnico |
+|---|---|---|
+| A frio (contêiner novo, sem cache) | 5 min 6 s | compilando 1% → 84% → pronta (sem "montando": o total de unidades ainda não era conhecido) |
+| Com cache (outra receita) | 1 min 35 s | compilando 24% → montando 98% (1 min 33 s) → pronta |
+
+- O `.exe` baixado pela rota do técnico tem o mesmo SHA-256 que o compilador enviou, abre no Windows e traz no "Sobre" o autor e a base carimbados pelo servidor e o hash da fila.
+- Pico do contêiner: ~470 MB parado depois do build. A imagem tem 4 GB (Rust, mingw-w64), e o disco da KVM1 foi de 7,4 GB para 25 GB usados nos testes.
+- O primeiro pedido falhou com "não foi possível baixar o código oficial": o repositório de teste (local, de outro dono) caiu na proteção "dubious ownership" do git. Em produção o compilador clona do GitHub.
 
 ### Medição na KVM1 (2026-11-17)
 
@@ -228,7 +269,7 @@ O `install.ps1` baixa a release oficial. Se rodasse por cima de uma versão pers
 ## Entrega em etapas
 
 1. **Receita e build local** (feita). Formato da receita, validação no `cf-versao`, `build.rs` no `camfacil`, tabela das 80 classes, "Sobre" com receita e hash. Testável com `CFIA_RECEITA=… cargo build`.
-2. **Compilador na VPS.** Contêiner `cfia-builder`, mingw-w64, cache, fila e progresso. Teste do executável num Windows de verdade.
+2. **Compilador na VPS** (feita). Fila no `cfia-api`, contêiner `cfia-builder` com mingw-w64, cache e progresso. Falta ligar em produção: subir o `cfia-api` novo e o compilador com o token.
 3. **Assistente no `cfia-api`.** As sete telas, importar receita, termo, download.
 4. **Retenção.** Registro de geração, limpeza de 30 dias, e-mail no 23º dia, política de privacidade.
 5. **Depois.** Linux, APK, "Salvar no meu Drive".

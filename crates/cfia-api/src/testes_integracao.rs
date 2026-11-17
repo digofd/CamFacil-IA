@@ -16,6 +16,7 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 const BASE: &str = "https://teste.local";
+const TOKEN_COMPILADOR: &str = "token-do-compilador-de-teste-0123456789";
 
 async fn estado() -> Option<AppState> {
     let url = std::env::var("TEST_DATABASE_URL").ok()?;
@@ -29,6 +30,11 @@ async fn estado() -> Option<AppState> {
         hub: hub::Hub::default(),
         limite: api::Limite::default(),
         base_url: BASE.into(),
+        versoes: crate::versoes::Config {
+            dir: std::env::temp_dir().join(format!("cfia-versoes-{}", Uuid::new_v4())),
+            token: Some(TOKEN_COMPILADOR.into()),
+            base_commit: Some("e46a8b7".into()),
+        },
     })))
 }
 
@@ -701,4 +707,222 @@ async fn notebook_e_esquema_publicos() {
     let (st, txt) = chamar_texto(&s, "/esquemas/receita-v1.schema.json").await;
     assert_eq!(st, StatusCode::OK);
     assert!(txt.contains("camfacil-receita"));
+}
+
+// ---------- Gerar sua versão (SDD-12) ----------
+
+/// Pedido como o assistente manda: sem base, autor nem hash (o servidor põe).
+fn pedido_versao(nome: &str) -> Value {
+    json!({"receita": {
+        "formato": "cfia-versao",
+        "versao_formato": 1,
+        "identidade": {"nome": nome, "empresa": "Silva Segurança"},
+        "cores": {"destaque": "#5aa9ff"},
+        "inteligencias": ["passagem", "presenca"],
+        "classes": [0, 16],
+    }})
+}
+
+/// Chamada do compilador: token no `Authorization`, sem cookie nem `Origin`.
+async fn compilador(
+    s: &AppState,
+    metodo: &str,
+    rota: &str,
+    token: Option<&str>,
+    corpo: Body,
+    json: bool,
+) -> (StatusCode, Value) {
+    let mut r = Request::builder().method(metodo).uri(rota);
+    if let Some(t) = token {
+        r = r.header("authorization", format!("Bearer {t}"));
+    }
+    if json {
+        r = r.header("content-type", "application/json");
+    }
+    let res = router(s.clone())
+        .oneshot(r.body(corpo).unwrap())
+        .await
+        .unwrap();
+    let status = res.status();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
+}
+
+async fn baixar(s: &AppState, rota: &str, sessao: &str) -> (StatusCode, Vec<u8>) {
+    let req = Request::builder()
+        .uri(rota)
+        .header("cookie", format!("{COOKIE}={sessao}"))
+        .body(Body::empty())
+        .unwrap();
+    let res = router(s.clone()).oneshot(req).await.unwrap();
+    let status = res.status();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    (status, bytes.to_vec())
+}
+
+#[tokio::test]
+async fn versao_vai_da_fila_ao_executavel() {
+    let s = ou_pula!(estado().await);
+    // Limpa a fila de execuções anteriores do teste.
+    {
+        let mut c = s.db.get().await.unwrap();
+        let tx = db::begin(&mut c, Ctx::Sistema).await.unwrap();
+        tx.execute(
+            "UPDATE versoes SET estado = 'erro' WHERE estado IN ('fila', 'compilando')",
+            &[],
+        )
+        .await
+        .unwrap();
+        tx.commit().await.unwrap();
+    }
+    let (_a, sa) = criar_sessao_teste(&s, &format!("va-{}", Uuid::new_v4()), "va@teste").await;
+    let (_b, sb) = criar_sessao_teste(&s, &format!("vb-{}", Uuid::new_v4()), "vb@teste").await;
+    let tk = Some(TOKEN_COMPILADOR);
+
+    // Marca de fabricante no nome é recusada antes de entrar na fila.
+    let (st, v) = chamar(
+        &s,
+        "POST",
+        "/api/versoes",
+        Some(&sa),
+        Some(pedido_versao("Vigia Intelbras")),
+    )
+    .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{v}");
+
+    let (st, v) = chamar(
+        &s,
+        "POST",
+        "/api/versoes",
+        Some(&sa),
+        Some(pedido_versao("Vigia Silva")),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let id = v["id"].as_str().unwrap().to_string();
+    let hash = v["hash"].as_str().unwrap().to_string();
+
+    // Uma por vez.
+    let (st, _) = chamar(
+        &s,
+        "POST",
+        "/api/versoes",
+        Some(&sa),
+        Some(pedido_versao("Outra")),
+    )
+    .await;
+    assert_eq!(st, StatusCode::CONFLICT);
+
+    // B não vê a versão de A.
+    let (st, _) = chamar(&s, "GET", &format!("/api/versoes/{id}"), Some(&sb), None).await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+    let (st, v) = chamar(&s, "GET", &format!("/api/versoes/{id}"), Some(&sa), None).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(v["estado"], "fila");
+    assert_eq!(v["posicao"], 1);
+
+    // Compilador sem token, ou com o errado, não pega nada.
+    let (st, _) = compilador(&s, "POST", "/api/builder/pegar", None, Body::empty(), false).await;
+    assert_eq!(st, StatusCode::UNAUTHORIZED);
+    let (st, _) = compilador(
+        &s,
+        "POST",
+        "/api/builder/pegar",
+        Some("x".repeat(40).as_str()),
+        Body::empty(),
+        false,
+    )
+    .await;
+    assert_eq!(st, StatusCode::UNAUTHORIZED);
+
+    let (st, v) = compilador(&s, "POST", "/api/builder/pegar", tk, Body::empty(), false).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert_eq!(v["id"], id.as_str());
+    assert_eq!(v["commit"], "e46a8b7");
+    // A receita entregue ao compilador é válida, assinada e com o autor da conta.
+    let r = cf_versao::ReceitaVersao::ler(&v["receita"].to_string()).unwrap();
+    assert_eq!(r.hash.as_deref(), Some(hash.as_str()));
+    assert_eq!(r.base.commit, "e46a8b7");
+    assert_eq!(r.autor.nome, "va");
+    let (st, _) = compilador(&s, "POST", "/api/builder/pegar", tk, Body::empty(), false).await;
+    assert_eq!(st, StatusCode::NO_CONTENT);
+
+    let prog =
+        |etapa: &str, pct: i64| Body::from(json!({"etapa": etapa, "percentual": pct}).to_string());
+    let rota = format!("/api/builder/{id}/progresso");
+    let (st, _) = compilador(&s, "POST", &rota, tk, prog("invasao", 10), true).await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+    let (st, _) = compilador(&s, "POST", &rota, tk, prog("compilando", 40), true).await;
+    assert_eq!(st, StatusCode::OK);
+    let (_, v) = chamar(&s, "GET", &format!("/api/versoes/{id}"), Some(&sa), None).await;
+    assert_eq!(
+        (v["estado"].as_str(), v["percentual"].as_i64()),
+        (Some("compilando"), Some(40))
+    );
+
+    // Executável: só um PE do Windows.
+    let rota = format!("/api/builder/{id}/executavel");
+    let (st, _) = compilador(&s, "PUT", &rota, tk, Body::from("não é exe"), false).await;
+    assert_eq!(st, StatusCode::BAD_REQUEST);
+    let exe = b"MZ\x90\x00 executavel de teste".to_vec();
+    let (st, v) = compilador(&s, "PUT", &rota, tk, Body::from(exe.clone()), false).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    let (_, v) = chamar(&s, "GET", &format!("/api/versoes/{id}"), Some(&sa), None).await;
+    assert_eq!(
+        (v["estado"].as_str(), v["percentual"].as_i64()),
+        (Some("pronta"), Some(100))
+    );
+
+    let rota = format!("/api/versoes/{id}/executavel");
+    let (st, bytes) = baixar(&s, &rota, &sa).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(bytes, exe);
+    let (st, _) = baixar(&s, &rota, &sb).await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+    let (st, bytes) = baixar(&s, &format!("/api/versoes/{id}/receita.json"), &sa).await;
+    assert_eq!(st, StatusCode::OK);
+    let devolvida: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(devolvida["hash"], hash.as_str());
+
+    // Até 3 por dia: mais duas (que falham no compilador) e a quarta é barrada.
+    for n in 0..2 {
+        let (st, v) = chamar(
+            &s,
+            "POST",
+            "/api/versoes",
+            Some(&sa),
+            Some(pedido_versao("Vigia Silva")),
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK, "pedido {n}: {v}");
+        let (_, v) = compilador(&s, "POST", "/api/builder/pegar", tk, Body::empty(), false).await;
+        let outro = v["id"].as_str().unwrap().to_string();
+        let corpo = Body::from(json!({"mensagem": "falhou de propósito"}).to_string());
+        let (st, _) = compilador(
+            &s,
+            "POST",
+            &format!("/api/builder/{outro}/erro"),
+            tk,
+            corpo,
+            true,
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK);
+    }
+    let (st, _) = chamar(
+        &s,
+        "POST",
+        "/api/versoes",
+        Some(&sa),
+        Some(pedido_versao("Vigia Silva")),
+    )
+    .await;
+    assert_eq!(st, StatusCode::TOO_MANY_REQUESTS);
+    let (st, v) = chamar(&s, "GET", "/api/versoes", Some(&sa), None).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(v["versoes"].as_array().unwrap().len(), 3);
+    assert_eq!(v["versoes"][0]["estado"], "erro");
 }
