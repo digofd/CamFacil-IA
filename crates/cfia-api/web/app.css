@@ -611,7 +611,10 @@ a:focus-visible, summary:focus-visible, button:focus-visible { outline: 2px soli
 .apoio-aviso.ok { color: var(--accent); }
 .apoio-aviso.erro { color: var(--c-danger); }
 @media (max-width: 760px) {
-  .apoiar { grid-template-columns: 1fr; gap: var(--s3); }
+  /* minmax(0, …): o copia e cola do Pix é uma linha longa e não pode
+     esticar a coluna além da tela. */
+  .apoiar { grid-template-columns: minmax(0, 1fr); gap: var(--s3); }
+  .apoiar-pix, .apoiar-mural { min-width: 0; }
   .apoiar-pix > p { display: none; }
   .pix-cartao img { width: 104px; height: 104px; }
   .apoio-grade { grid-template-columns: 1fr; }
@@ -630,6 +633,21 @@ a:focus-visible, summary:focus-visible, button:focus-visible { outline: 2px soli
 .apoiar-mural.aberto .mural-bloco, .apoiar-mural.aberto .mural-ver { display: none; }
 .mural-form-topo { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
 .mural-form-topo h3 { margin: 0; }
+/* Computador: uma grade só para os dois lados ficarem alinhados. Título e
+   texto em cima, na largura toda; Pix e mural lado a lado, da mesma altura;
+   "O que o seu apoio libera" e "Ver o mural" na mesma linha embaixo. */
+@media (min-width: 761px) {
+  .apoiar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "tit tit" "txt txt" "pix mural" "niveis ver"; gap: var(--s3) clamp(var(--s5), 4vw, 56px); align-content: center; align-items: stretch; }
+  .apoiar-pix, .apoiar-mural { display: contents; }
+  #apoiar-t { grid-area: tit; margin: 0; }
+  .apoiar-pix > p { grid-area: txt; margin: 0; max-width: 72ch; }
+  .apoiar .pix-cartao { grid-area: pix; margin: 0; }
+  .apoiar #niveis { grid-area: niveis; align-self: start; }
+  .apoiar .mural-bloco { grid-area: mural; min-height: 0; }
+  .apoiar .mural-ver { grid-area: ver; align-self: start; padding: var(--s2) 0; border-top: 1px solid var(--line); }
+  /* Formulário aberto: ocupa o lado do mural, do cartão até embaixo. */
+  .apoiar #form-mural { grid-column: 2; grid-row: 3 / span 2; align-self: start; }
+}
 .apoio-mais { margin: 0; }
 .apoio-mais > .apoio-grade { padding-top: var(--s2); }
 @media (max-width: 760px) {
@@ -760,3 +778,13 @@ a:focus-visible, summary:focus-visible, button:focus-visible { outline: 2px soli
 @media (max-width: 480px) {
   .digita { font-size: var(--fs-xs); white-space: normal; min-height: 3em; line-height: 1.5; }
 }
+
+/* Minha versão (SDD-12) */
+.mv-cartao { display: flex; flex-direction: column; gap: var(--s2); max-width: 720px; padding: var(--s4); border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+.mv-nome { margin: 0; font-size: var(--fs-lg); }
+.mv-ficha { margin: 0; }
+.mv-rotulo { margin: var(--s2) 0 0; }
+.mv-cartao .cmd code { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mv-cartao .actions { flex-wrap: wrap; }
+.mv-perigo { color: var(--c-danger); }
+.mv-cartao .msg:empty { display: none; }

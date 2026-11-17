@@ -197,17 +197,21 @@ pub async fn pedir(
     let hash = r.hash.clone().unwrap_or_default();
 
     let mut c = s.db.get().await.map_err(interno)?;
-    let tx = db::begin(&mut c, Ctx::Tecnico(t.id))
-        .await
-        .map_err(interno)?;
+    // Conta pelo registro de geração, que o técnico não apaga: limpar as
+    // versões não devolve o limite do dia.
+    let tx = db::begin(&mut c, Ctx::Sistema).await.map_err(interno)?;
     let hoje: i64 = tx
         .query_one(
-            "SELECT count(*) FROM versoes WHERE tecnico_id = $1 AND criado_em > now() - interval '1 day'",
+            "SELECT count(*) FROM registro_versoes WHERE tecnico_id = $1 AND gerado_em > now() - interval '1 day'",
             &[&t.id],
         )
         .await
         .map_err(interno)?
         .get(0);
+    tx.commit().await.map_err(interno)?;
+    let tx = db::begin(&mut c, Ctx::Tecnico(t.id))
+        .await
+        .map_err(interno)?;
     if hoje >= MAX_POR_DIA {
         return Err(erro(
             StatusCode::TOO_MANY_REQUESTS,
@@ -217,9 +221,17 @@ pub async fn pedir(
     let id = Uuid::new_v4();
     let ins = tx
         .execute(
-            "INSERT INTO versoes(id, tecnico_id, nome, receita, receita_sha256, base_commit)
-             VALUES ($1, $2, $3, $4, $5, $6)",
-            &[&id, &t.id, &r.identidade.nome, &receita, &hash, &commit],
+            "INSERT INTO versoes(id, tecnico_id, nome, receita, receita_sha256, base_commit, link)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            &[
+                &id,
+                &t.id,
+                &r.identidade.nome,
+                &receita,
+                &hash,
+                &commit,
+                &crate::util::token(18),
+            ],
         )
         .await;
     if let Err(e) = ins {
@@ -266,7 +278,7 @@ pub async fn pedir(
 const COLS: &str = "id, nome, estado, etapa, percentual, erro, receita_sha256, base_commit, \
      executavel_bytes, \
      to_char(criado_em AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), \
-     to_char(terminado_em AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')";
+     to_char(terminado_em AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'),      downloads, link";
 
 fn resumo(r: &tokio_postgres::Row) -> Value {
     json!({
@@ -281,6 +293,11 @@ fn resumo(r: &tokio_postgres::Row) -> Value {
         "executavel_bytes": r.get::<_, Option<i64>>(8),
         "criado_em": r.get::<_, String>(9),
         "terminado_em": r.get::<_, Option<String>>(10),
+        "downloads": r.get::<_, i32>(11),
+        // Link público (sem login) só depois de pronta.
+        "link": (r.get::<_, String>(2) == "pronta")
+            .then(|| r.get::<_, Option<String>>(12).map(|l| format!("/v/{l}")))
+            .flatten(),
     })
 }
 
@@ -417,6 +434,37 @@ pub async fn baixar_receita(
         .into_response())
 }
 
+/// Soma um download (do dono ou pelo link público).
+async fn contar_download(s: &AppState, id: Uuid) -> Result<(), Falha> {
+    let mut c = s.db.get().await.map_err(interno)?;
+    let tx = db::begin(&mut c, Ctx::Sistema).await.map_err(interno)?;
+    tx.execute(
+        "UPDATE versoes SET downloads = downloads + 1 WHERE id = $1",
+        &[&id],
+    )
+    .await
+    .map_err(interno)?;
+    tx.commit().await.map_err(interno)
+}
+
+fn resposta_exe(nome: &str, bytes: Vec<u8>) -> Response {
+    (
+        [
+            (
+                header::CONTENT_TYPE,
+                "application/vnd.microsoft.portable-executable".to_string(),
+            ),
+            (
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{}.exe\"", arquivo_de(nome)),
+            ),
+            (header::CACHE_CONTROL, "no-store".to_string()),
+        ],
+        bytes,
+    )
+        .into_response()
+}
+
 pub async fn baixar_executavel(
     State(s): State<AppState>,
     t: Tecnico,
@@ -432,21 +480,113 @@ pub async fn baixar_executavel(
             "o executável não está mais aqui; gere de novo pela receita",
         )
     })?;
-    Ok((
-        [
-            (
-                header::CONTENT_TYPE,
-                "application/vnd.microsoft.portable-executable".to_string(),
-            ),
-            (
-                header::CONTENT_DISPOSITION,
-                format!("attachment; filename=\"{}.exe\"", arquivo_de(&nome)),
-            ),
-            (header::CACHE_CONTROL, "no-store".to_string()),
-        ],
-        bytes,
+    contar_download(&s, id).await?;
+    Ok(resposta_exe(&nome, bytes))
+}
+
+/// `GET /v/{link}` (público, sem login): o técnico manda o link ao cliente.
+/// Limite por IP, para o link não virar servidor de arquivo de ninguém.
+pub async fn baixar_publico(
+    State(s): State<AppState>,
+    headers: HeaderMap,
+    Path(link): Path<String>,
+) -> Response {
+    let nao_achou = || {
+        (
+            StatusCode::NOT_FOUND,
+            [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+            "Link de download não encontrado. A versão pode ter sido apagada ou trocada.",
+        )
+            .into_response()
+    };
+    if link.len() != 24
+        || !link
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return nao_achou();
+    }
+    let ip = crate::ip(&headers);
+    if !s.limite.permitir(
+        &format!("versao-publica:{ip}"),
+        30,
+        std::time::Duration::from_secs(3600),
+    ) {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+            "Muitos downloads seguidos deste endereço. Tente daqui a pouco.",
+        )
+            .into_response();
+    }
+    let achada = async {
+        let mut c = s.db.get().await.ok()?;
+        let tx = db::begin(&mut c, Ctx::Sistema).await.ok()?;
+        let r = tx
+            .query_opt(
+                "SELECT id, nome FROM versoes WHERE link = $1 AND estado = 'pronta'",
+                &[&link],
+            )
+            .await
+            .ok()??;
+        tx.commit().await.ok()?;
+        Some((r.get::<_, Uuid>(0), r.get::<_, String>(1)))
+    }
+    .await;
+    let Some((id, nome)) = achada else {
+        return nao_achou();
+    };
+    let Ok(bytes) = tokio::fs::read(s.versoes.arquivo(id)).await else {
+        return nao_achou();
+    };
+    if contar_download(&s, id).await.is_err() {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
+    resposta_exe(&nome, bytes)
+}
+
+/// `DELETE /api/versoes`: limpa as versões do técnico (receitas, logos,
+/// executáveis e links). O registro de geração continua (12 meses).
+pub async fn limpar(State(s): State<AppState>, t: Tecnico, headers: HeaderMap) -> Res {
+    let mut c = s.db.get().await.map_err(interno)?;
+    let tx = db::begin(&mut c, Ctx::Tecnico(t.id))
+        .await
+        .map_err(interno)?;
+    let ocupada: i64 = tx
+        .query_one(
+            "SELECT count(*) FROM versoes WHERE estado IN ('fila', 'compilando')",
+            &[],
+        )
+        .await
+        .map_err(interno)?
+        .get(0);
+    if ocupada > 0 {
+        return Err(erro(
+            StatusCode::CONFLICT,
+            "tem uma versão compilando; espere ela terminar para limpar",
+        ));
+    }
+    let apagadas: Vec<Uuid> = tx
+        .query("DELETE FROM versoes RETURNING id", &[])
+        .await
+        .map_err(interno)?
+        .iter()
+        .map(|l| l.get(0))
+        .collect();
+    db::auditar(
+        &tx,
+        Some(t.id),
+        "versao_limpa",
+        &apagadas.len().to_string(),
+        &crate::ip(&headers),
     )
-        .into_response())
+    .await
+    .map_err(interno)?;
+    tx.commit().await.map_err(interno)?;
+    for id in &apagadas {
+        let _ = tokio::fs::remove_file(s.versoes.arquivo(*id)).await;
+    }
+    Ok(Json(json!({ "apagadas": apagadas.len() })))
 }
 
 // ---------- Compilador ----------

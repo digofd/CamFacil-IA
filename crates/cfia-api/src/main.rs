@@ -176,7 +176,13 @@ pub fn router(state: AppState) -> Router {
         .route("/api/parear", post(api::parear))
         .route("/ws/agente", get(hub::ws_agente))
         .route("/ws/painel", get(hub::ws_painel))
-        .route("/api/versoes", get(versoes::minhas).post(versoes::pedir))
+        .route(
+            "/api/versoes",
+            get(versoes::minhas)
+                .post(versoes::pedir)
+                .delete(versoes::limpar),
+        )
+        .route("/v/{link}", get(versoes::baixar_publico))
         .route("/api/versoes/catalogo", get(versoes::catalogo))
         .route("/api/versoes/conferir", post(versoes::conferir))
         .route("/api/versoes/{id}", get(versoes::ver))

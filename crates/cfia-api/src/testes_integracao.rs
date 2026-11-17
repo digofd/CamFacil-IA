@@ -945,6 +945,30 @@ async fn versao_vai_da_fila_ao_executavel() {
     let (st, bytes) = baixar(&s, &rota, &sa).await;
     assert_eq!(st, StatusCode::OK);
     assert_eq!(bytes, exe);
+    // Contador e link público: o link baixa sem login e também conta.
+    let (_, v) = chamar(&s, "GET", &format!("/api/versoes/{id}"), Some(&sa), None).await;
+    assert_eq!(v["downloads"], 1);
+    let link = v["link"].as_str().expect("link público").to_string();
+    assert!(link.starts_with("/v/") && link.len() == 27, "{link}");
+    let publico = |rota: String| {
+        let s = s.clone();
+        async move {
+            let req = Request::builder().uri(rota).body(Body::empty()).unwrap();
+            let res = router(s).oneshot(req).await.unwrap();
+            let st = res.status();
+            (
+                st,
+                res.into_body().collect().await.unwrap().to_bytes().to_vec(),
+            )
+        }
+    };
+    let (st, bytes) = publico(link.clone()).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(bytes, exe);
+    let (st, _) = publico("/v/naoexisteaaaaaaaaaaaaaaa".into()).await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+    let (_, v) = chamar(&s, "GET", &format!("/api/versoes/{id}"), Some(&sa), None).await;
+    assert_eq!(v["downloads"], 2);
     let (st, _) = baixar(&s, &rota, &sb).await;
     assert_eq!(st, StatusCode::NOT_FOUND);
     let (st, bytes) = baixar(&s, &format!("/api/versoes/{id}/receita.json"), &sa).await;
@@ -990,6 +1014,31 @@ async fn versao_vai_da_fila_ao_executavel() {
     assert_eq!(st, StatusCode::OK);
     assert_eq!(v["versoes"].as_array().unwrap().len(), 3);
     assert_eq!(v["versoes"][0]["estado"], "erro");
+
+    // Limpar apaga tudo (o link para de funcionar), mas não devolve o limite do dia.
+    let (st, v) = chamar(&s, "DELETE", "/api/versoes", Some(&sa), None).await;
+    assert_eq!(st, StatusCode::OK, "{v}");
+    assert_eq!(v["apagadas"], 3);
+    let (st, _) = publico(link).await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+    let (_, v) = chamar(&s, "GET", "/api/versoes", Some(&sa), None).await;
+    assert_eq!(v["versoes"].as_array().unwrap().len(), 0);
+    let (st, _) = chamar(
+        &s,
+        "POST",
+        "/api/versoes",
+        Some(&sa),
+        Some(pedido_versao("Vigia Silva")),
+    )
+    .await;
+    assert_eq!(
+        st,
+        StatusCode::TOO_MANY_REQUESTS,
+        "limpar não zera o limite"
+    );
+    // B não limpa nada de A (e não tem nada para limpar).
+    let (st, v) = chamar(&s, "DELETE", "/api/versoes", Some(&sb), None).await;
+    assert_eq!((st, v["apagadas"].as_i64()), (StatusCode::OK, Some(0)));
 }
 
 // ---------- Retenção do Gerar sua versão (SDD-12) ----------

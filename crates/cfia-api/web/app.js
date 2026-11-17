@@ -112,6 +112,65 @@ function mostrar(id) {
   document.querySelectorAll("#app main > [role=tabpanel]").forEach((p) => { p.hidden = p.id !== id; });
   if (id === "agentes") { vista(vistaAtual === "detalhe" && !detalheId ? "lista" : vistaAtual); carregarAgentes(); }
   if (id === "dispositivos") carregarDispositivos();
+  if (id === "minha-versao") carregarMinhaVersao();
+}
+
+// ---------- Minha versão (SDD-12) ----------
+const ROTULO_ESTADO = { fila: "Na fila", compilando: "Compilando", pronta: "Pronta", erro: "Não deu certo" };
+async function carregarMinhaVersao() {
+  const caixa = $("#mv-corpo");
+  let versoes = [];
+  try { ({ versoes } = await api("/api/versoes")); } catch (e) {
+    caixa.replaceChildren(el("p", { class: "msg err" }, e.message));
+    return;
+  }
+  const v = versoes[0];
+  if (!v) {
+    caixa.replaceChildren(el("div", { class: "cliente-vazio mv-vazio" },
+      el("h2", {}, "Você ainda não tem uma versão"),
+      el("p", { class: "hint" }, "Monte o programa com o seu nome, logo, cor e só as inteligências que você vende. O servidor compila em poucos minutos."),
+      el("a", { class: "btn primary", href: "/versao" }, "Gerar minha versão")));
+    return;
+  }
+  const linhas = [
+    ["Situação", ROTULO_ESTADO[v.estado] || v.estado + (v.estado === "compilando" ? ` (${v.percentual}%)` : "")],
+    ["Gerada em", data(v.terminado_em || v.criado_em)],
+    ["Downloads", String(v.downloads ?? 0)],
+    ["Hash da receita", v.hash.slice(0, 12)],
+  ];
+  const acoes = el("div", { class: "actions mt" });
+  if (v.estado === "pronta") {
+    acoes.append(
+      el("a", { class: "btn primary", href: `/api/versoes/${v.id}/executavel`, download: "", onclick: () => setTimeout(carregarMinhaVersao, 2500) }, icone("i-down", "ico sm"), el("span", {}, "Baixar o programa")),
+      el("a", { class: "btn", href: `/api/versoes/${v.id}/receita.json`, download: "" }, el("span", {}, "Baixar a receita")));
+  }
+  acoes.append(el("a", { class: "btn ghost", href: "/versao" }, el("span", {}, v.estado === "pronta" ? "Abrir no assistente" : "Acompanhar")));
+  const limpar = el("button", { class: "btn ghost mv-perigo", type: "button" }, el("span", {}, "Limpar versão"));
+  const aviso = el("p", { class: "msg", role: "status" });
+  limpar.onclick = async () => {
+    if (!confirm("Limpar a versão? O programa, a receita e o link público serão apagados e o link para de funcionar. Baixe a receita antes, se quiser gerar de novo depois.")) return;
+    try { await api("/api/versoes", "DELETE"); carregarMinhaVersao(); }
+    catch (e) { aviso.className = "msg err"; aviso.textContent = e.message; }
+  };
+  if (v.estado !== "fila" && v.estado !== "compilando") acoes.append(limpar);
+  const partes = [
+    el("h2", { class: "mv-nome" }, v.nome),
+    el("dl", { class: "rows mv-ficha" }, ...linhas.flatMap(([k, val]) => [el("dt", {}, k), el("dd", {}, val)])),
+  ];
+  if (v.estado === "pronta" && v.link) {
+    partes.push(el("p", { class: "hint mv-rotulo" }, "Link público para o cliente (baixa sem entrar no site):"), caixaComando(location.origin + v.link));
+  }
+  if (v.estado === "erro" && v.erro) partes.push(el("p", { class: "msg err" }, v.erro));
+  partes.push(acoes, aviso);
+  caixa.replaceChildren(el("div", { class: "mv-cartao" }, ...partes));
+  caixa.querySelectorAll("[data-copiar]").forEach((b) => {
+    b.onclick = async () => {
+      const t = b.parentElement.querySelector("code").textContent;
+      try { await navigator.clipboard.writeText(t); b.querySelector("span").textContent = "Copiado"; } catch (_) { getSelection().selectAllChildren(b.parentElement.querySelector("code")); }
+      setTimeout(() => { b.querySelector("span").textContent = "Copiar"; }, 2000);
+    };
+  });
+  if (v.estado === "fila" || v.estado === "compilando") setTimeout(() => { if (!$("#minha-versao").hidden) carregarMinhaVersao(); }, 4000);
 }
 
 // Dentro do Painel, uma vista por vez: lista de clientes, como parear, ao vivo, detalhe.
