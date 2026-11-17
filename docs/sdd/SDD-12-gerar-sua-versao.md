@@ -107,6 +107,7 @@ Regra: a receita mexe **só no crate `camfacil`**. Medido na KVM1: trocar de rec
 - **Tela:** nome da versão no título e no menu lateral, logo no lugar do ícone. No Início (Máquina), a linha "Versão" ganha o link do código-fonte (também no oficial, sem linha nova) e a versão gerada ganha só duas linhas: "Versão modificada" (autor, data e base) e "Receita" (hash e **Exportar receita**). Com quatro linhas, o bloco passava 36 px em 360×640.
 - **API:** `GET /api/versao` (informações do "Sobre") e `GET /api/versao/receita.json` (exporta a receita; 404 no oficial).
 - **Sem receita, o binário sai igual ao oficial.** O teste `versao::sem_receita_e_igual_ao_oficial` confere inteligências, classes, `tokens.css`, `icon.svg` e a ausência de logo e receita.
+- **Ficha do Windows:** no alvo Windows, o `build.rs` embute (com `embed-resource`: `rc.exe` no MSVC, `windres` no mingw) a ficha de versão, um manifesto (`asInvoker`, Windows 10+) e o ícone. No oficial: "CamFácil IA", "Projeto CamFácil IA (software livre)" e o ícone de `scripts/icones/camfacil.ico`. Na versão gerada: produto com o nome da versão, empresa do técnico, "versão modificada do CamFácil IA", autor, data, base, hash da receita e o link do código; o ícone é o logo da receita (PNG dentro do `.ico`). Motivo: o primeiro `.exe` gerado em produção teve 4 de 71 no VirusTotal, todos por modelo ou reputação (arquivo novo, sem assinatura, sem ficha). A ficha ajuda; a solução de verdade é a assinatura digital (decisão em aberto).
 - Impacto no binário: a tabela das 80 classes e a receita somam poucos KB; o logo vai até 512 KB. Executável Windows medido: 6,5 MB.
 
 ### Conferido na Etapa 1 (2026-11-17)
@@ -311,6 +312,8 @@ O `install.ps1` baixa a release oficial. Se rodasse por cima de uma versão pers
 - Fim a fim: receita → build no `cfia-builder` → executável abre no Windows com a cor, o logo e as classes escolhidas.
 
 ## Decisões em aberto
+
+- **Assinatura digital (Authenticode)** dos executáveis, oficiais e gerados: resolve o SmartScreen e faz a reputação ser da assinatura, não de cada arquivo (cada versão gerada é um arquivo novo). Opções: serviço de assinatura da Microsoft no Azure (mensal, assina do compilador) ou certificado tradicional (anual). Custo e exigência de identidade a confirmar.
 
 - **Classes perigosas de vender.** Faca (43), tesoura (76) e taco de beisebol (34) podem ser vendidas como "detecção de arma", com precisão baixa. Ficam no grupo "Outros" com o selo, ou saem da lista?
 - **Provedor de e-mail.** O código fala SMTP com qualquer provedor; falta escolher qual (e configurar SPF/DKIM do domínio) e preencher `CFIA_SMTP_URL` e `CFIA_EMAIL_DE` no servidor.
