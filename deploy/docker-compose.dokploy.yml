@@ -19,6 +19,8 @@ services:
       # Gerar sua versão (SDD-12). Sem CFIA_BASE_COMMIT, a função fica desligada.
       CFIA_BASE_COMMIT: ${CFIA_BASE_COMMIT:-}
       CFIA_BUILDER_TOKEN: ${CFIA_BUILDER_TOKEN:-}
+      # E-mails sem o limite de 3 versões por dia (separados por vírgula).
+      CFIA_SEM_LIMITE: ${CFIA_SEM_LIMITE:-}
       CFIA_VERSOES_DIR: /dados/versoes
       # Aviso de retenção por e-mail; sem estes, a limpeza roda e o aviso não sai.
       CFIA_SMTP_URL: ${CFIA_SMTP_URL:-}

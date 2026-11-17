@@ -46,6 +46,7 @@ Duas peças: a fila no `cfia-api` (este servidor) e o compilador numa VPS separa
 ```
 CFIA_BASE_COMMIT=<commit do main que os técnicos recebem como base>
 CFIA_BUILDER_TOKEN=<o mesmo token do compilador, 32+ caracteres>
+CFIA_SEM_LIMITE=<e-mails sem o limite de 3 por dia, separados por vírgula>   # opcional
 CFIA_SMTP_URL=smtps://usuario:senha@smtp.provedor.com:465   # opcional
 CFIA_EMAIL_DE=CamFácil IA <nao-responda@cfia.ysafe.com.br>   # opcional
 ```
