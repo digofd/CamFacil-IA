@@ -128,7 +128,19 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let listener = tokio::net::TcpListener::from_std(chosen.listener)?;
 
     let url = format!("http://localhost:{}", chosen.port);
-    println!("CamFácil IA {} — dashboard em {url}", cf_core::VERSION);
+    // Janela do programa: na versão gerada (SDD-12), o nome dela, com a
+    // menção ao CamFácil IA.
+    {
+        use std::io::IsTerminal;
+        if std::io::stdout().is_terminal() {
+            // Título da janela (cmd, PowerShell e Windows Terminal entendem).
+            print!("]0;{}", versao::titulo_janela());
+        }
+    }
+    println!(
+        "{} — dashboard em {url}",
+        versao::apresentacao(cf_core::VERSION)
+    );
     if chosen.moved {
         println!(
             "A porta preferida estava ocupada por outro programa. Usando a {} para não conflitar.",

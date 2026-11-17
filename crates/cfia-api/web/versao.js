@@ -409,7 +409,7 @@
     barra.classList.toggle("parada", v.estado === "fila");
     $("#pronta").hidden = v.estado !== "pronta";
     $("#erro-bloco").hidden = v.estado !== "erro";
-    $("#nova").hidden = !["pronta", "erro"].includes(v.estado);
+    $("#acoes-versao").hidden = !["pronta", "erro"].includes(v.estado);
     $("#t-gerar").textContent = v.nome;
     const min = v.tempo_medio_s ? Math.max(1, Math.round(v.tempo_medio_s / 60)) : null;
     if (v.estado === "fila") {
@@ -425,6 +425,10 @@
       $("#estimativa").textContent = v.executavel_bytes ? `${(v.executavel_bytes / 1048576).toFixed(1)} MB · hash da receita ${v.hash.slice(0, 12)}` : "";
       $("#baixar-exe").href = `/api/versoes/${v.id}/executavel`;
       $("#baixar-receita").href = `/api/versoes/${v.id}/receita.json`;
+      $("#contador").textContent = v.downloads === 1 ? "Baixado 1 vez" : `Baixado ${v.downloads} vezes`;
+      $("#link-publico").textContent = v.link ? location.origin + v.link : "—";
+      // O contador sobe quando alguém baixa: confere de novo de tempos em tempos.
+      tAcomp = setTimeout(acompanhar, 30000);
       return;
     } else {
       $("#etapa").textContent = "Não deu certo";
@@ -436,7 +440,31 @@
     tAcomp = setTimeout(acompanhar, 3000);
   }
   $("#tentar").onclick = () => { S.versao = null; S.conferida = false; ir(4, true); };
-  $("#nova").onclick = () => { S.versao = null; S.conferida = false; $("#aceito").checked = false; ir(0, true); };
+  $("#nova").onclick = () => { clearTimeout(tAcomp); S.versao = null; S.conferida = false; $("#aceito").checked = false; ir(0, true); };
+  $("#baixar-exe").addEventListener("click", () => { setTimeout(acompanhar, 2500); });
+  $("#copiar-link").onclick = async () => {
+    const t = $("#link-publico").textContent;
+    try { await navigator.clipboard.writeText(t); $("#copiar-link").textContent = "Copiado"; }
+    catch (_) { getSelection().selectAllChildren($("#link-publico")); $("#copiar-link").textContent = "Selecionado"; }
+    setTimeout(() => { $("#copiar-link").textContent = "Copiar link"; }, 2000);
+  };
+  // Limpar: apaga versões, receitas, executáveis e o link público (o registro de quem gerou fica).
+  $("#limpar").onclick = async () => {
+    if (!confirm("Limpar a versão? O programa, a receita e o link público serão apagados daqui e o link para de funcionar. Baixe a receita antes, se quiser gerar de novo depois.")) return;
+    clearTimeout(tAcomp);
+    try {
+      await api("/api/versoes", "DELETE");
+      try { localStorage.removeItem("cf-versao-rascunho"); } catch (_) { /* sem armazenamento */ }
+      Object.assign(S, { versao: null, conferida: false, nome: "", empresa: "", logo: null, destaque: paleta()[1] ? paleta()[1].cor : S.destaque });
+      S.classes = new Set(CAT.padrao);
+      $("#aceito").checked = false;
+      preencher();
+      ir(0, true);
+      msg("#identidade-msg", "Versão limpa. Monte a próxima quando quiser.", "ok");
+    } catch (e) {
+      msg("#limpar-msg", e.message, "err");
+    }
+  };
 
   // ------------------------------------------------------------ início
   function preencher() {
@@ -473,7 +501,8 @@
       const { versoes } = await api("/api/versoes");
       const ativa = versoes.find((v) => v.estado === "fila" || v.estado === "compilando");
       const recente = versoes[0];
-      if (ativa || (recente && recente.estado === "pronta" && location.hash === "#gerar")) {
+      // A versão pronta fica: a página abre nela (download, contador, link).
+      if (ativa || (recente && recente.estado === "pronta")) {
         S.versao = (ativa || recente).id;
         ir(5);
         acompanhar();

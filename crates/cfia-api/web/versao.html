@@ -173,17 +173,32 @@
             <a class="btn primary grande" id="baixar-exe" href="#" download>Baixar o programa (.exe)</a>
             <a class="btn grande" id="baixar-receita" href="#" download>Baixar a receita</a>
           </div>
+          <div class="ver-compartilhar">
+            <span class="ver-contador" id="contador">Baixado 0 vezes</span>
+            <div class="cmd ver-link">
+              <code class="mono" id="link-publico"></code>
+              <button type="button" class="btn ghost sm" id="copiar-link">Copiar link</button>
+            </div>
+            <p class="tiny">Link público: quem tiver o link baixa o programa sem entrar no site. Bom para mandar ao cliente.</p>
+          </div>
+          <details class="ver-avisos-caixa">
+            <summary>Antes de entregar ao cliente</summary>
           <ul class="ver-avisos">
             <li><strong>Guarde a receita</strong> (no seu Google Drive ou onde preferir). Com ela você gera a mesma versão de novo. O espaço aqui é apagado após 30 dias sem entrar.</li>
             <li>Sem assinatura digital, o SmartScreen e alguns antivírus desconfiam de arquivo novo ("Mais informações" → "Executar assim mesmo"). Em Propriedades → Detalhes aparecem o seu nome e o hash da receita.</li>
             <li>No programa, a tela Início mostra que é uma versão modificada, o hash da receita e o botão para exportar a receita.</li>
           </ul>
+          </details>
         </div>
         <div class="ver-erro" id="erro-bloco" hidden>
           <p class="msg err" id="erro-msg"></p>
           <button type="button" class="btn" id="tentar">Voltar à revisão</button>
         </div>
-        <button type="button" class="btn sm ghost" id="nova" hidden>Gerar outra versão</button>
+        <div class="ver-acoes" id="acoes-versao" hidden>
+          <button type="button" class="btn sm" id="nova">Gerar outra versão</button>
+          <button type="button" class="btn sm ghost ver-perigo" id="limpar">Limpar versão</button>
+        </div>
+        <p class="msg" id="limpar-msg" aria-live="polite"></p>
       </div>
     </section>
 

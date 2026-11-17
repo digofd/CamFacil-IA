@@ -338,7 +338,7 @@ pub async fn robots(
     axum::extract::State(state): axum::extract::State<crate::AppState>,
 ) -> Response {
     let corpo = format!(
-        "User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /ws/\n\nSitemap: {}/sitemap.xml\n",
+        "User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /ws/\nDisallow: /v/\n\nSitemap: {}/sitemap.xml\n",
         state.base_url
     );
     ([(header::CONTENT_TYPE, "text/plain; charset=utf-8")], corpo).into_response()

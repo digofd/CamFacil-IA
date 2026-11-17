@@ -92,6 +92,17 @@
 .ver-avisos { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--text-2); font-size: var(--fs-sm); }
 .ver-avisos strong { color: var(--text); font-weight: 500; }
 .ver-erro .msg { margin: 0 0 var(--s2); }
+.ver-compartilhar { display: flex; flex-direction: column; gap: var(--s1); }
+.ver-contador { font-size: var(--fs-sm); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.ver-link { margin-top: 0; max-width: 640px; }
+.ver-link code { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ver-compartilhar .tiny { margin: 0; }
+.ver-avisos-caixa summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); }
+.ver-avisos-caixa[open] summary { margin-bottom: var(--s2); }
+.ver-acoes { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.ver-acoes[hidden] { display: none; }
+.ver-perigo { color: var(--c-danger); }
+.ver-perigo:hover { color: var(--c-danger); border-color: var(--c-danger); }
 
 @media (max-width: 999px), (max-height: 620px) {
   .ver-entrada { grid-template-columns: minmax(0, 1fr); gap: var(--s3); }

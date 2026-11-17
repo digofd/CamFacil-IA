@@ -24,6 +24,29 @@ pub fn codigo_url() -> String {
     )
 }
 
+/// Primeira linha da janela do programa. Na versão gerada: o nome dela e a
+/// menção ao CamFácil IA (e a empresa, se houver).
+pub fn apresentacao(versao: &str) -> String {
+    if !PERSONALIZADA {
+        return format!("CamFácil IA {versao}");
+    }
+    let empresa = if EMPRESA.is_empty() {
+        String::new()
+    } else {
+        format!(" · {EMPRESA}")
+    };
+    format!("{NOME}{empresa} · versão modificada do CamFácil IA {versao}")
+}
+
+/// Título da janela do console.
+pub fn titulo_janela() -> String {
+    if PERSONALIZADA {
+        format!("{NOME} (CamFácil IA)")
+    } else {
+        "CamFácil IA".into()
+    }
+}
+
 /// A inteligência por regra pode ser usada nesta versão?
 pub fn intel_permitida(id: &str) -> bool {
     INTELIGENCIAS.contains(&id)
@@ -67,6 +90,18 @@ mod tests {
         let icone = crate::assets::find("/icon.svg").unwrap().body;
         assert_eq!(icone, include_bytes!("../../../web/icon.svg"));
         assert!(crate::assets::find("/marca").is_none());
+    }
+
+    #[test]
+    fn apresentacao_cita_o_camfacil() {
+        let a = apresentacao("0.9.9");
+        assert!(a.contains("CamFácil IA 0.9.9"), "{a}");
+        if !std::hint::black_box(PERSONALIZADA) {
+            assert_eq!(a, "CamFácil IA 0.9.9");
+            assert_eq!(titulo_janela(), "CamFácil IA");
+        } else {
+            assert!(a.starts_with(NOME) && a.contains("versão modificada"));
+        }
     }
 
     #[test]
