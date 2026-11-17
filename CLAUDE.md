@@ -6,10 +6,10 @@ Versão atual: ver `version` no `Cargo.toml` da raiz (a release sai sozinha quan
 
 ## Leia antes de codar (só o necessário para a tarefa)
 - Produto: `docs/PRD.md`
-- Núcleo: `docs/sdd/SDD-01-nucleo.md` · Módulos: `SDD-02` · Educação: `SDD-03` · Integrações: `SDD-04` · Rede: `SDD-05` · App/TV/Web: `SDD-06` · Modo estúdio: `SDD-07` · Contas e isolamento: `SDD-08` · Inteligências por regra: `SDD-09` · IA avançada (proposta): `SDD-10` · LGPD: `docs/legal/`
+- Núcleo: `docs/sdd/SDD-01-nucleo.md` · Módulos: `SDD-02` · Educação: `SDD-03` · Integrações: `SDD-04` · Rede: `SDD-05` · App/TV/Web: `SDD-06` · Modo estúdio: `SDD-07` · Contas e isolamento: `SDD-08` · Inteligências por regra: `SDD-09` · IA avançada (proposta): `SDD-10` · Gerar sua versão: `SDD-12` · LGPD: `docs/legal/`
 - Web app e API: **https://cfia.ysafe.com.br** (Dokploy, ver `docs/DEPLOY.md`)
 - Escolinha (instrução) fica no site em `crates/cfia-api/web/escola.*`; programa local é só operação (ADR 0008)
-- Decisões: `docs/adr/` (0001 a 0017) · Visual: `DESIGN.md` e `web/tokens.css` (redesign com a skill `impeccable`)
+- Decisões: `docs/adr/` (0001 a 0018) · Visual: `DESIGN.md` e `web/tokens.css` (redesign com a skill `impeccable`)
 - Relatórios de fase (histórico): `docs/RELATORIO-FASE3.md`, `docs/RELATORIO-FASE6-ANDROID.md`
 
 ## Mapa do código
@@ -18,12 +18,13 @@ Versão atual: ver `version` no `Cargo.toml` da raiz (a release sai sozinha quan
 | `crates/camfacil` | Binário do programa local: servidor axum, API (`api.rs`), vídeo via ffmpeg (`video.rs`, `visor.rs`), IA ONNX (`ia/`), rede, hardware, backup, TV, botões de portão/relé, MCP, Tailscale, ngrok, elo (Agente-Cam-Elo-IA), modo estúdio |
 | `crates/cf-core` | Núcleo compartilhado (programa local e Android): SQLite (`store.rs`), RTSP/ONVIF, visão leve e cerca virtual (`visao.rs`), detecção e rastreio (`deteccao.rs`), catálogo de inteligências (`inteligencias.rs`), sugestão e avaliação de regras, saúde da câmera, diagnóstico de rede e diagrama unifilar, gravador DVR/NVR, receita e notebook do estúdio |
 | `crates/cf-notify` | Telegram, WhatsApp (Evolution API), webhook, cofre cifrado (ChaCha20-Poly1305) |
-| `crates/cfia-api` | API e site da nuvem (login Google, Postgres com RLS, pareamento, sinalização, Formação, selo, receitas do estúdio) |
+| `crates/cfia-api` | API e site da nuvem (login Google, Postgres com RLS, pareamento, sinalização, Formação, selo, receitas do estúdio, fila e retenção do "Gerar sua versão": `versoes.rs`, `retencao.rs`, página `/versao`) |
+| `crates/cf-versao` | Receita da versão (formato, validação, hash, contraste, marca de fabricante) e as 80 classes do COCO; leve, porque o `build.rs` do `camfacil` usa (`CFIA_RECEITA`) |
 | `web/` | Dashboard do programa local: HTML + CSS + JS puro, textos em `web/i18n/pt-BR.json`, tokens em `web/tokens.css` |
 | `android/` | App Kotlin (sem AndroidX) que abre o painel num WebView e, opcionalmente, roda o núcleo Rust no aparelho (ADRs 0009, 0011, 0014) |
 | `site-docs/` + `mkdocs.yml` | Site de documentação (MkDocs Material) em pt, en e es |
 | `scripts/` | Instaladores, `budget.sh`, deploy, build Android, telas de teste (Playwright) |
-| `deploy/` | Dockerfile e composes da API (Dokploy, VPS, servidor) |
+| `deploy/` | Dockerfile e composes da API (Dokploy, VPS, servidor); `deploy/builder/`: compilador das versões geradas (contêiner na VPS própria) |
 
 Não existem `cf-modules`, `modules/<id>/module.toml` nem `guide/`: o contrato de módulo por pasta (SDD-02) ficou como proposta para a comunidade. Hoje os módulos são os de `crates/camfacil/src/video.rs` (`MODULOS`) e as inteligências por regra de `crates/cf-core/src/inteligencias.rs`.
 
@@ -40,12 +41,12 @@ Não existem `cf-modules`, `modules/<id>/module.toml` nem `guide/`: o contrato d
 10. **Nada vem ligado.** Todo módulo de IA começa desligado; o técnico escolhe. Regra criada com o módulo desligado fica salva desligada e liga junto com o módulo.
 
 ## Convenções
-- Workspace Cargo em `crates/`: `camfacil`, `cf-core`, `cf-notify`, `cfia-api`.
+- Workspace Cargo em `crates/`: `camfacil`, `cf-core`, `cf-notify`, `cf-versao`, `cfia-api`.
 - O CI (`.github/workflows/rust.yml`) roda `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` (com Postgres para a `cfia-api`), `scripts/budget.sh`, build Windows/Linux x86_64/Linux ARM64, APK Android e a publicação da release.
 - Rode `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings` e `cargo test --workspace` antes de cada commit.
 - Commits: Conventional Commits em português (`feat(rtsp): gerador para Hikvision`).
 - Um PR por item do roadmap; descreva impacto em RAM/CPU.
-- Mudou uma decisão de arquitetura → nova ADR em `docs/adr/` (a próxima é a 0018).
+- Mudou uma decisão de arquitetura → nova ADR em `docs/adr/` (a próxima é a 0019).
 - Mudou comportamento visível → atualize o SDD da área, o `README.md` (Novidades) e, se for o caso, `site-docs/pt|en|es`.
 - **A cada 5 commits** (no máximo), revise e atualize toda a documentação: SDDs das áreas tocadas, `docs/NOVIDADES.md`, `README.md`, `site-docs/pt|en|es` e o mapa do código. Mudança de comportamento já entra com a doc no mesmo PR; esta revisão pega o que escapou.
 - Subir a versão no `Cargo.toml` da raiz publica uma release nova (inclui o APK, que usa a mesma versão).

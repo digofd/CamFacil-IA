@@ -79,6 +79,17 @@ The Builder follows the **Reversa** method: the agreement first, the code after.
 5. **Proves** it: runs the tests, opens the program and shows it working.
 6. **Documents** what changed, so the next person (or the next AI) can carry on.
 
+## Nothing to install: Generate your version
+
+Just want the program with your brand, no new features? On the website, sign in with Google and open **[Generate your version](https://cfia.ysafe.com.br/versao)** (in Portuguese):
+
+1. **Identity:** version name, your company and your logo.
+2. **Color:** the accent instead of green, with a preview and a contrast check.
+3. **Intelligences and detections:** only what you sell. You can pick from the model's 80 classes (dog, horse, backpack…); fewer classes mean more focus.
+4. **Generate:** the server builds it in a few minutes and you download the Windows executable and the **recipe**.
+
+Keep the recipe: it rebuilds the same version. The space is free and is wiped after 30 days without signing in, with an e-mail warning first. The program shows it is a modified version of CamFácil IA and the code stays free.
+
 ## Your version, your obligations
 
 - **It stays free.** Your version remains AGPL-3.0, with open source and the credits preserved.

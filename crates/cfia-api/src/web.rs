@@ -228,6 +228,14 @@ const ARQUIVOS: &[Arquivo] = &[
         "web/img/formacao-og.png"
     ),
     arq!("/estudio", "text/html; charset=utf-8", "web/estudio.html"),
+    // Gerar sua versão (SDD-12): assistente, só para quem entrou com o Google.
+    arq!("/versao", "text/html; charset=utf-8", "web/versao.html"),
+    arq!("/versao.css", "text/css; charset=utf-8", "web/versao.css"),
+    arq!(
+        "/versao.js",
+        "text/javascript; charset=utf-8",
+        "web/versao.js"
+    ),
     arq!("/doc.js", "text/javascript; charset=utf-8", "web/doc.js"),
     arq!("/estudio.css", "text/css; charset=utf-8", "web/estudio.css"),
     arq!(

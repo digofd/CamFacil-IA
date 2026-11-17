@@ -48,6 +48,8 @@ O **Builder** é o mestre de obras deste projeto: todo desenvolvimento, seu ou d
 
 Ele trabalha com o método do **[Reversa](https://github.com/sandeco/reversa)**, do professor Sandeco Macedo (primeiro o combinado, depois o código), e respeita a LGPD, a licença AGPL-3.0, a segurança e as regras do projeto. Pedido que fere uma delas é recusado, com o motivo e uma alternativa.
 
+**Não quer instalar nada?** No site, o **Gerar sua versão** monta o programa com o seu nome, logo e cor, só com as inteligências e detecções que você vende, e entrega o executável e a receita ([SDD-12](docs/sdd/SDD-12-gerar-sua-versao.md)). Para função nova, o caminho é o Builder.
+
 **[Conheça o Builder](https://emersoncassis.github.io/CamFacil-IA/builder/)** · [a skill](.claude/skills/camfacil-ia-builder/SKILL.md) · [o que ele não faz e por quê](.claude/skills/camfacil-ia-builder/referencias/limites.md)
 
 <br clear="right"/>
@@ -321,6 +323,12 @@ Versão atual: **0.9.8** ([releases](https://github.com/emersoncassis/CamFacil-I
   - [x] Autocorreção de IP da câmera pelo MAC (opção por câmera, com conferência da imagem e antirrepique)
   - [x] Gravador (DVR/NVR): escolher os canais ao ligar, trocar o canal no Editar e corrigir o IP de todos os canais juntos
 - [x] **Segurança** — aba Segurança, acesso pela rede com PIN e aparelhos liberados, MCP com rédea para IA · [ADR 0017](docs/adr/0017-acesso-pela-rede-com-pin-e-aparelhos.md) · [documento](docs/seguranca/SEGURANCA.md)
+- [ ] **Gerar sua versão** — a versão do técnico (nome, logo, cor, inteligências e detecções), compilada no servidor · [SDD-12](docs/sdd/SDD-12-gerar-sua-versao.md) · [ADR 0018](docs/adr/0018-gerar-sua-versao-compilada-na-vps.md)
+  - [x] Receita aplicada na compilação, com a receita e o hash dentro do executável
+  - [x] Fila no site e compilador numa VPS própria (mingw-w64)
+  - [x] Assistente no site, de ponta a ponta e sem rolagem
+  - [x] Retenção: 30 dias sem entrar, aviso por e-mail, registro de geração por 12 meses
+  - [ ] No ar: provedor de e-mail e compilador ligados em produção
 - [ ] **Fase 7** — Modo estúdio · [versão básica](https://cfia.ysafe.com.br/estudio)
   - [x] Receita de módulo validada (biometria bloqueada), gerador do notebook do Colab, importar modelo de estudo, compartilhar receitas no site
   - [x] Assistente no site, de ponta a ponta e sem rolagem: descrever (receita conferida pelo núcleo), coletar, rotular no navegador (fotos nunca vão ao servidor, exporta .zip YOLO), notebook do Colab, importar e galeria de receitas

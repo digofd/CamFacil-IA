@@ -1,0 +1,15 @@
+[package]
+name = "cf-versao"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# Receita da versão (SDD-12) e tabela das 80 classes do COCO. Crate pequeno de
+# propósito: o `build.rs` do `camfacil` usa como dependência de compilação, e
+# por isso não pode puxar o `cf-core` (que compila o SQLite).
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.11.1"

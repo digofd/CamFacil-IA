@@ -13,15 +13,10 @@ use std::time::{Duration, Instant};
 /// Lado da entrada do modelo (YOLOv8n/YOLO11n exportados em 640).
 pub const LADO: usize = 640;
 
-/// Classes do COCO que interessam (índice → nome em pt-BR).
-pub const CLASSES: &[(usize, &str)] = &[
-    (0, "pessoa"),
-    (1, "bicicleta"),
-    (2, "carro"),
-    (3, "moto"),
-    (5, "ônibus"),
-    (7, "caminhão"),
-];
+/// Classes do COCO que o programa oficial observa (as outras o detector
+/// descarta). Uma versão gerada (SDD-12) passa a própria lista a
+/// [`decodificar_classes`]. Nomes e plurais: `cf_versao::coco`.
+pub const CLASSES_PADRAO: &[usize] = cf_versao::coco::PADRAO;
 
 /// Classes de um **modelo de estudo** (SDD-07) entram a partir deste índice,
 /// para nunca se confundirem com as do COCO (`0` = pessoa). A classe `i` da
@@ -44,26 +39,18 @@ pub fn regra_casa(r: &Regra, classe: usize) -> bool {
     cs.contains(&classe)
 }
 
+/// Nome em pt-BR de uma classe do COCO (as 80).
 pub fn nome_classe(c: usize) -> Option<&'static str> {
-    CLASSES.iter().find(|(i, _)| *i == c).map(|(_, n)| *n)
+    cf_versao::coco::achar(c).map(|k| k.nome)
 }
 
 /// Plural curto para o balão: "2 pessoas", "1 carro".
 pub fn plural(c: usize, n: usize) -> String {
-    let nome = nome_classe(c).unwrap_or("objeto");
-    if n == 1 {
-        format!("1 {nome}")
-    } else {
-        let p = match nome {
-            "pessoa" => "pessoas",
-            "bicicleta" => "bicicletas",
-            "carro" => "carros",
-            "moto" => "motos",
-            "ônibus" => "ônibus",
-            "caminhão" => "caminhões",
-            _ => "objetos",
-        };
-        format!("{n} {p}")
+    match cf_versao::coco::achar(c) {
+        Some(k) if n == 1 => format!("1 {}", k.nome),
+        Some(k) => format!("{n} {}", k.plural),
+        None if n == 1 => "1 objeto".into(),
+        None => format!("{n} objetos"),
     }
 }
 
@@ -167,8 +154,22 @@ pub fn decodificar(
     h_img: usize,
     conf_min: f32,
 ) -> Vec<Deteccao> {
+    decodificar_classes(saida, shape, enc, w_img, h_img, conf_min, CLASSES_PADRAO)
+}
+
+/// Igual a [`decodificar`], observando só as classes do COCO de `classes`
+/// (a lista de uma versão gerada, SDD-12).
+pub fn decodificar_classes(
+    saida: &[f32],
+    shape: &[usize],
+    enc: Encaixe,
+    w_img: usize,
+    h_img: usize,
+    conf_min: f32,
+    classes: &[usize],
+) -> Vec<Deteccao> {
     decodificar_com(saida, shape, enc, w_img, h_img, conf_min, |c| {
-        nome_classe(c).map(|_| c)
+        classes.contains(&c).then_some(c)
     })
 }
 

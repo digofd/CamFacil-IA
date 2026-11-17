@@ -10,6 +10,7 @@ authors.workspace = true
 axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio", "json", "query"] }
 cf-core = { path = "../cf-core" }
 cf-notify = { path = "../cf-notify" }
+cf-versao = { path = "../cf-versao" }
 miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
 ort = { version = "2.0.0-rc.15", default-features = false, features = ["load-dynamic"] }
 # Mesma versão e feature do cf-core (já compilado): log de hardware em banco próprio.
@@ -28,3 +29,8 @@ tokio = { version = "1.54.1", default-features = false, features = ["rt", "net",
 tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots", "rustls-tls-native-roots"] }
 zune-core = "0.5"
 zune-jpeg = "0.5.15"
+
+# build.rs: aplica a receita da versão (SDD-12).
+[build-dependencies]
+cf-versao = { path = "../cf-versao" }
+serde_json = "1.0.154"

@@ -87,6 +87,7 @@ pub const SONS: &[&str] = &["bipe", "sino", "alarme", "gota", "silencio"];
 pub const CORES: &[&str] = &["verde", "ambar", "vermelho", "azul", "branco", "magenta"];
 
 /// Por que a combinação não vale (mensagem para o técnico), ou `None`.
+/// Classes aceitas: as de [`CLASSES_ESCOLHA`].
 pub fn validar(
     forma: &Forma,
     intel: Intel,
@@ -95,6 +96,23 @@ pub fn validar(
     cor: &str,
     som: &str,
     estudo: bool,
+) -> Option<String> {
+    let padrao: Vec<usize> = CLASSES_ESCOLHA.iter().map(|(i, _)| *i).collect();
+    validar_com(forma, intel, classes, parametro, cor, som, estudo, &padrao)
+}
+
+/// Igual a [`validar`], aceitando as classes do COCO de `permitidas` (a lista
+/// de uma versão gerada, SDD-12).
+#[allow(clippy::too_many_arguments)]
+pub fn validar_com(
+    forma: &Forma,
+    intel: Intel,
+    classes: &[usize],
+    parametro: u32,
+    cor: &str,
+    som: &str,
+    estudo: bool,
+    permitidas: &[usize],
 ) -> Option<String> {
     if intel != Intel::Legado {
         let id = match intel {
@@ -123,10 +141,8 @@ pub fn validar(
             }
         }
     }
-    let valida = |c: &usize| {
-        CLASSES_ESCOLHA.iter().any(|(i, _)| i == c)
-            || (estudo && *c >= crate::deteccao::CLASSE_ESTUDO)
-    };
+    let valida =
+        |c: &usize| permitidas.contains(c) || (estudo && *c >= crate::deteccao::CLASSE_ESTUDO);
     if classes.len() > 12 || classes.iter().any(|c| !valida(c)) {
         return Some("classe desconhecida".into());
     }
@@ -167,5 +183,25 @@ mod tests {
         assert!(validar(&Forma::Zona, Intel::Presenca, &[1002], 0, "", "", false).is_some());
         assert!(validar(&Forma::Zona, Intel::Presenca, &[1002], 0, "", "", true).is_none());
         assert!(validar(&Forma::Zona, Intel::Presenca, &[0], 0, "rosa", "", false).is_some());
+    }
+
+    #[test]
+    fn versao_gerada_aceita_as_proprias_classes() {
+        let z = Forma::Zona;
+        // Cachorro (16) não está no padrão, mas está na lista da versão.
+        assert!(validar(&z, Intel::Presenca, &[16], 0, "", "", false).is_some());
+        assert!(validar_com(&z, Intel::Presenca, &[16], 0, "", "", false, &[0, 16]).is_none());
+        assert!(validar_com(&z, Intel::Presenca, &[2], 0, "", "", false, &[0, 16]).is_some());
+    }
+
+    #[test]
+    fn mesmas_inteligencias_da_receita_de_versao() {
+        let aqui: Vec<_> = INTELIGENCIAS.iter().map(|i| i.id).collect();
+        assert_eq!(aqui, cf_versao::receita::INTELIGENCIAS);
+        let padrao: Vec<_> = CLASSES_ESCOLHA.iter().map(|(i, _)| *i).collect();
+        assert_eq!(padrao, cf_versao::coco::PADRAO);
+        for (i, id) in CLASSES_ESCOLHA {
+            assert_eq!(cf_versao::coco::CLASSES[*i].id, *id);
+        }
     }
 }

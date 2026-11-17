@@ -79,6 +79,17 @@ O Builder segue o método do **Reversa**: primeiro o combinado, depois o código
 5. **Prova**: roda os testes, abre o programa e mostra funcionando.
 6. **Documenta** o que mudou, para a próxima pessoa (ou a próxima IA) continuar.
 
+## Sem instalar nada: Gerar sua versão
+
+Quer só o programa com a sua marca, sem função nova? No site, entre com o Google e abra **[Gerar sua versão](https://cfia.ysafe.com.br/versao)**:
+
+1. **Identidade:** nome da versão, da sua empresa e o logo.
+2. **Cor:** o destaque no lugar do verde, com prévia e conferência de contraste.
+3. **Inteligências e detecções:** só o que você vende. Dá para escolher entre as 80 classes do modelo (cachorro, cavalo, mochila…); menos classe é mais foco.
+4. **Gerar:** o servidor compila em poucos minutos e você baixa o executável do Windows e a **receita**.
+
+Guarde a receita: com ela você gera a mesma versão de novo. O espaço é gratuito e é apagado após 30 dias sem entrar, com aviso por e-mail antes. O programa mostra que é uma versão modificada do CamFácil IA e o código continua livre.
+
 ## A sua versão, as suas obrigações
 
 - **Continua livre.** A sua versão segue AGPL-3.0, com o código aberto e os créditos preservados.

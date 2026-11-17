@@ -8,15 +8,18 @@ mod auth;
 mod db;
 mod estudio;
 mod hub;
+mod retencao;
 mod util;
+mod versoes;
 mod web;
 
 use axum::{
+    extract::DefaultBodyLimit,
     extract::Request,
     http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{delete, get, patch, post},
+    routing::{delete, get, patch, post, put},
     Json, Router,
 };
 use serde_json::json;
@@ -34,6 +37,10 @@ pub struct Inner {
     pub limite: api::Limite,
     /// Ex.: https://cfia.ysafe.com.br (sem barra no fim).
     pub base_url: String,
+    /// "Gerar sua versão" (SDD-12): pasta dos executáveis, token do compilador, base.
+    pub versoes: versoes::Config,
+    /// SMTP do aviso de retenção; `None` sem configuração.
+    pub correio: Option<retencao::Correio>,
 }
 
 impl std::ops::Deref for AppState {
@@ -85,7 +92,13 @@ async fn exigir_origem(
     next: Next,
 ) -> Response {
     let muda = !matches!(*req.method(), Method::GET | Method::HEAD | Method::OPTIONS);
-    if muda && req.uri().path().starts_with("/api/") && !origem_ok(&state, req.headers()) {
+    // O compilador (SDD-12) não usa cookie: entra com o token dele, sem CSRF a temer.
+    let compilador = req.uri().path().starts_with("/api/builder/");
+    if muda
+        && !compilador
+        && req.uri().path().starts_with("/api/")
+        && !origem_ok(&state, req.headers())
+    {
         return erro(StatusCode::FORBIDDEN, "origem não permitida").into_response();
     }
     next.run(req).await
@@ -163,6 +176,25 @@ pub fn router(state: AppState) -> Router {
         .route("/api/parear", post(api::parear))
         .route("/ws/agente", get(hub::ws_agente))
         .route("/ws/painel", get(hub::ws_painel))
+        .route("/api/versoes", get(versoes::minhas).post(versoes::pedir))
+        .route("/api/versoes/catalogo", get(versoes::catalogo))
+        .route("/api/versoes/conferir", post(versoes::conferir))
+        .route("/api/versoes/{id}", get(versoes::ver))
+        .route(
+            "/api/versoes/{id}/receita.json",
+            get(versoes::baixar_receita),
+        )
+        .route(
+            "/api/versoes/{id}/executavel",
+            get(versoes::baixar_executavel),
+        )
+        .route("/api/builder/pegar", post(versoes::pegar))
+        .route("/api/builder/{id}/progresso", post(versoes::progresso))
+        .route(
+            "/api/builder/{id}/executavel",
+            put(versoes::executavel).layer(DefaultBodyLimit::max(versoes::EXECUTAVEL_MAX)),
+        )
+        .route("/api/builder/{id}/erro", post(versoes::falhou))
         .fallback(web::estatico)
         .layer(middleware::from_fn_with_state(state.clone(), exigir_origem))
         .layer(middleware::from_fn_with_state(state.clone(), cabecalhos))
@@ -219,7 +251,10 @@ async fn main() {
         hub: hub::Hub::default(),
         limite: api::Limite::default(),
         base_url,
+        versoes: versoes::Config::do_ambiente(),
+        correio: retencao::Correio::do_ambiente(),
     }));
+    retencao::iniciar(state.clone());
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", porta))
         .await

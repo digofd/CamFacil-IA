@@ -20,6 +20,8 @@
 }
 .brand { display: flex; align-items: center; gap: var(--s2); padding: var(--s1) var(--s2); font-weight: 600; font-size: var(--fs-md); letter-spacing: -0.01em; }
 .brand img { border-radius: var(--r-sm); }
+.brand img.brand-logo { object-fit: contain; background: var(--c-white); }
+.versao-receita code { font-size: var(--fs-sm); }
 
 .nav { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .nav button {
@@ -208,7 +210,7 @@ dialog h2 { margin: 0 0 var(--s3); font-size: var(--fs-lg); font-weight: 600; }
 #baloes { position: absolute; inset: 0; pointer-events: none; }
 #baloes .cf-bubble { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
 .viewer-off { position: absolute; inset: 0; display: grid; place-items: center; padding: var(--s5); text-align: center; color: var(--text-3); background: var(--c-black); }
-.forma { fill: rgba(6, 203, 63, 0.12); stroke: var(--accent); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.forma { fill: rgba(var(--c-green-rgb), 0.12); stroke: var(--accent); stroke-width: 3; vector-effect: non-scaling-stroke; }
 .forma.linha { fill: none; }
 .forma.salva { fill: rgba(255, 255, 255, 0.06); stroke: var(--c-300); stroke-dasharray: 6 4; }
 .forma.salva.cor-verde, .vv-forma.cor-verde { color: var(--linha-verde); }
@@ -331,7 +333,7 @@ button.link:hover { color: var(--text); }
 .sug-lista li.tiny, .sug-lista li:has(> .tiny:only-child) { border-style: dashed; }
 .sug-info { min-width: 0; }
 .sug-info p { margin: 2px 0 var(--s2); }
-#desenho .sugestao { fill: rgba(6, 203, 63, .12); stroke: var(--accent); stroke-width: 4; stroke-dasharray: 14 10; vector-effect: non-scaling-stroke; animation: cf-sug 1s linear infinite; }
+#desenho .sugestao { fill: rgba(var(--c-green-rgb), .12); stroke: var(--accent); stroke-width: 4; stroke-dasharray: 14 10; vector-effect: non-scaling-stroke; animation: cf-sug 1s linear infinite; }
 #desenho polyline.sugestao { fill: none; }
 @keyframes cf-sug { to { stroke-dashoffset: -24; } }
 @media (max-width: 760px) { .sugerir-topo, .sug-lista li { flex-direction: column; align-items: stretch; } }

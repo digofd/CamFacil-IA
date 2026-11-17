@@ -16,9 +16,21 @@ macro_rules! asset {
     };
 }
 
+/// Gerado pelo `build.rs`: igual ao de `web/` no programa oficial; numa
+/// versão gerada (SDD-12), com a cor de destaque da receita.
+macro_rules! gerado {
+    ($path:literal, $mime:literal, $file:literal) => {
+        Asset {
+            path: $path,
+            mime: $mime,
+            body: include_bytes!(concat!(env!("OUT_DIR"), "/", $file)),
+        }
+    };
+}
+
 pub const ASSETS: &[Asset] = &[
     asset!("/", "text/html; charset=utf-8", "index.html"),
-    asset!("/tokens.css", "text/css; charset=utf-8", "tokens.css"),
+    gerado!("/tokens.css", "text/css; charset=utf-8", "tokens.css"),
     asset!("/app.css", "text/css; charset=utf-8", "app.css"),
     asset!("/app.js", "text/javascript; charset=utf-8", "app.js"),
     asset!("/sons.js", "text/javascript; charset=utf-8", "sons.js"),
@@ -37,7 +49,13 @@ pub const ASSETS: &[Asset] = &[
         "application/json; charset=utf-8",
         "i18n/pt-BR.json"
     ),
-    asset!("/icon.svg", "image/svg+xml", "icon.svg"),
+    gerado!("/icon.svg", "image/svg+xml", "icon.svg"),
+    // Logo da versão gerada (vazio no programa oficial: `find` não serve).
+    Asset {
+        path: "/marca",
+        mime: crate::versao::LOGO_MIME,
+        body: crate::versao::LOGO,
+    },
     asset!("/entrar.html", "text/html; charset=utf-8", "entrar.html"),
     asset!("/entrar.js", "text/javascript; charset=utf-8", "entrar.js"),
     asset!("/entrar.css", "text/css; charset=utf-8", "entrar.css"),
@@ -89,5 +107,8 @@ pub const ASSETS: &[Asset] = &[
 
 pub fn find(path: &str) -> Option<&'static Asset> {
     let path = if path == "/index.html" { "/" } else { path };
-    ASSETS.iter().find(|a| a.path == path)
+    ASSETS
+        .iter()
+        .find(|a| a.path == path)
+        .filter(|a| !a.body.is_empty())
 }

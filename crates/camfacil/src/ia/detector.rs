@@ -93,7 +93,15 @@ fn inferir(
         .map_err(|e| e.to_string())?;
     let shape: Vec<usize> = shape.iter().map(|&d| d.max(0) as usize).collect();
     Ok(match estudo {
-        None => deteccao::decodificar(dados, &shape, enc, w, h, CONF_MIN),
+        None => deteccao::decodificar_classes(
+            dados,
+            &shape,
+            enc,
+            w,
+            h,
+            CONF_MIN,
+            crate::versao::CLASSES,
+        ),
         Some(m) => {
             let nc = m.nomes.len();
             if shape.len() != 3 || shape[1] != 4 + nc {

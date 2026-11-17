@@ -27,6 +27,14 @@ const MIGRACOES: &[(&str, &str)] = &[
         "0004_receitas_estudo",
         include_str!("../migrations/0004_receitas_estudo.sql"),
     ),
+    (
+        "0005_versoes",
+        include_str!("../migrations/0005_versoes.sql"),
+    ),
+    (
+        "0006_retencao",
+        include_str!("../migrations/0006_retencao.sql"),
+    ),
 ];
 
 /// Contexto de uma transação.
